@@ -1,3 +1,7 @@
 .idea/
 node_modules
 package-lock.json
+.ipynb_checkpoints/
+*.ipynb
+*.pickle
+*.sqlite
