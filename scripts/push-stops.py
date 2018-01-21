@@ -7,6 +7,10 @@ This CLI is just a simple wrapper that runs a sequence of `awscli` commands with
 > aws s3 sync s3://mta-gtfs-1 . --exclude "*" --include "*2018-01-17*"
 
 Use it to retrieve all GTFS-R records within a certain set time period.
+
+E.g. how I've been using it:
+
+> python push-stops.py '2018-01-19' ~/Desktop/subway-explorer-datastore/
 """
 
 import click
