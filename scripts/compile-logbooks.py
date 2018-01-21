@@ -16,6 +16,7 @@ import gtfs_tripify as gt
 from tqdm import tqdm
 import sqlite3
 import pandas as pd
+import warnings
 
 
 FEED_IDENTIFIERS = [1, 2, 11, 16, 21, 26, 31, 36]
@@ -34,7 +35,7 @@ def run(root, start_time, end_time, out):
     format using a "_" instead of a "T").
     """
     # import pdb; pdb.set_trace()
-    conn = sqlite3.connect("{0}/logbooks.sqlite".format(out))
+    conn = sqlite3.connect("{0}/logbooks-backup.sqlite".format(out))
 
     for feed_id in FEED_IDENTIFIERS:
 
@@ -145,15 +146,27 @@ def run(root, start_time, end_time, out):
 
 def parse_feed(filepath):
     """Helper function for reading a feed in using Protobuf. Handles bad feeds by replacing them with None."""
-    with open(filepath, "rb") as f:
-        try:
-            fm = gtfs_realtime_pb2.FeedMessage()
-            fm.ParseFromString(f.read())
-            return fm
-        except (KeyboardInterrupt, SystemExit):
-            raise
-        except:
-            return None
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+
+        with open(filepath, "rb") as f:
+            try:
+                fm = gtfs_realtime_pb2.FeedMessage()
+                fm.ParseFromString(f.read())
+                return fm
+            except (KeyboardInterrupt, SystemExit):
+                raise
+            # Protobuf occasionally raises an unexpected tag RuntimeWarning. This sometimes occurs when a feed that we
+            # read is in an inconsistent state (the other option is a straight-up exception). It's just a warning,
+            # but it corresponds with data loss, and `gtfs-tripify` should not be allowed to touch the resulting
+            # message --- it will take the non-presence of certain trips no longer present in the database at the
+            # given time as evidence of trip ends. We need to explicitly return None for the corresponding messages
+            # so they can be totally excised.
+            # See https://groups.google.com/forum/#!msg/mtadeveloperresources/9Fb4SLkxBmE/BlmaHWbfw6kJ
+            except RuntimeWarning:
+                return None
+            except:
+                return None
 
 
 if __name__ == '__main__':
