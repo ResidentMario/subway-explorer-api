@@ -36,10 +36,11 @@ def run(root, start_time, end_time, out):
     # import pdb; pdb.set_trace()
     conn = sqlite3.connect("{0}/logbooks.sqlite".format(out))
 
-    for feed_number in FEED_IDENTIFIERS:
+    for feed_id in FEED_IDENTIFIERS:
 
+        print("Starting work on the feed with the ID '{0}'".format(feed_id))
         # Date format munging.
-        feed_root = "{0}/mta-gtfs-{1}".format(root, feed_number)
+        feed_root = "{0}/mta-gtfs-{1}".format(root, feed_id)
         start_datetime = datetime.strptime(start_time, "%Y-%m-%d_%H:%M")
         end_datetime = datetime.strptime(end_time, "%Y-%m-%d_%H:%M")
         read_in_terminus = end_datetime + timedelta(hours=TERMINUS_TIME)
