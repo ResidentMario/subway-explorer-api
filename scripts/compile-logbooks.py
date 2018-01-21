@@ -40,11 +40,11 @@ def run(root, start_time, end_time, out):
 
         # Date format munging.
         feed_root = "{0}/mta-gtfs-{1}".format(root, feed_number)
-        start_time = datetime.strptime(start_time, "%Y-%m-%d_%H:%M")
-        end_time = datetime.strptime(end_time, "%Y-%m-%d_%H:%M")
-        read_in_terminus = end_time + timedelta(hours=TERMINUS_TIME)
-        day_of_root = "{0}/{1}".format(feed_root, start_time.strftime("%Y-%m-%d"))
-        day_after_root = "{0}/{1}".format(feed_root, (start_time + timedelta(days=1)).strftime('%Y-%m-%d'))
+        start_datetime = datetime.strptime(start_time, "%Y-%m-%d_%H:%M")
+        end_datetime = datetime.strptime(end_time, "%Y-%m-%d_%H:%M")
+        read_in_terminus = end_datetime + timedelta(hours=TERMINUS_TIME)
+        day_of_root = "{0}/{1}".format(feed_root, start_datetime.strftime("%Y-%m-%d"))
+        day_after_root = "{0}/{1}".format(feed_root, (start_datetime + timedelta(days=1)).strftime('%Y-%m-%d'))
 
         # TODO: Raise an error if there is not enough follow-up data to complete trips that extend past the end time.
         # Raise an error if there is not enough follow-on data.
@@ -130,7 +130,7 @@ def run(root, start_time, end_time, out):
                 del trim[trip_id]
             else:
                 start_ts = logbook[trip_id].iloc[0]['latest_information_time']
-                if datetime.fromtimestamp(int(start_ts)).day != start_time.day:
+                if datetime.fromtimestamp(int(start_ts)).day != start_datetime.day:
                     del trim[trip_id]
 
         del logbook
