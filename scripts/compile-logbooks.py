@@ -15,7 +15,6 @@ from google.transit import gtfs_realtime_pb2
 import gtfs_tripify as gt
 from tqdm import tqdm
 import sqlite3
-import pandas as pd
 import warnings
 
 
@@ -35,7 +34,7 @@ def run(root, start_time, end_time, out):
     format using a "_" instead of a "T").
     """
     # import pdb; pdb.set_trace()
-    conn = sqlite3.connect("{0}/logbooks-backup.sqlite".format(out))
+    conn = sqlite3.connect("{0}/logbooks.sqlite".format(out))
 
     for feed_id in FEED_IDENTIFIERS:
 
@@ -138,9 +137,8 @@ def run(root, start_time, end_time, out):
         del logbook
 
         print("Writing to SQL...")
-        # Write out to a SQLite database.
-        pd.concat(trim[trip_id] for trip_id in trim.keys()).to_sql('Logbooks', conn, if_exists='append')
-        del trim
+        gt.utils.to_sql(trim, conn)
+
         print("Done!")
 
 
