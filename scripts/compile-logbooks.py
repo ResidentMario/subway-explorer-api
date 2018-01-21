@@ -5,7 +5,7 @@ containing only complete trips. It assumes that the data has already been locali
 
 E.g. how I've been using it:
 
-> python compile-logbooks.py ~/Desktop/subway-explorer-datastore/ '2017-01-18' .
+> python compile-logbooks.py ~/Desktop/subway-explorer-datastore/ '2018-01-18_00:00' '2018-01-18_12:00' .
 """
 
 import click
