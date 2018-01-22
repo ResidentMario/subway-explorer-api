@@ -1,3 +1,5 @@
+// URI: http://localhost:3000/locate-stations/json?line=2&x=10&y=40&name=%22The%20Road%22&time=2018-01-18T12:00
+
 const express = require('express');
 const app = express();
 const Sequelize = require('sequelize');
