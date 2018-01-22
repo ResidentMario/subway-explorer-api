@@ -10,7 +10,7 @@ Use it to retrieve all GTFS-R records within a certain set time period.
 
 E.g. how I've been using it:
 
-> python push-stops.py '2018-01-19' ~/Desktop/subway-explorer-datastore/
+> python localize-gtfs-r-records.py '2018-01-19' ~/Desktop/subway-explorer-datastore/
 """
 
 import click

@@ -5,7 +5,7 @@ containing only complete trips. It assumes that the data has already been locali
 
 E.g. how I've been using it:
 
-> python compile-logbooks.py ~/Desktop/subway-explorer-datastore/ '2018-01-18_00:00' '2018-01-18_12:00' .
+> python compile-logbooks.py ~/Desktop/subway-explorer-datastore/ '2018-01-18T00:00' '2018-01-18T12:00' .
 """
 
 import click
@@ -41,8 +41,8 @@ def run(root, start_time, end_time, out):
         print("Starting work on the feed with the ID '{0}'".format(feed_id))
         # Date format munging.
         feed_root = "{0}/mta-gtfs-{1}".format(root, feed_id)
-        start_datetime = datetime.strptime(start_time, "%Y-%m-%d_%H:%M")
-        end_datetime = datetime.strptime(end_time, "%Y-%m-%d_%H:%M")
+        start_datetime = datetime.strptime(start_time, "%Y-%m-%dT%H:%M")
+        end_datetime = datetime.strptime(end_time, "%Y-%m-%dT%H:%M")
         read_in_terminus = end_datetime + timedelta(hours=TERMINUS_TIME)
         day_of_root = "{0}/{1}".format(feed_root, start_datetime.strftime("%Y-%m-%d"))
         day_after_root = "{0}/{1}".format(feed_root, (start_datetime + timedelta(days=1)).strftime('%Y-%m-%d'))

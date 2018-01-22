@@ -1,6 +1,10 @@
 const express = require('express');
 const app = express();
 
+/* TODO: Implement!
+   I need to define another middleware script for writing GTFS stations.txt records to the database so that it can
+   queried using this function.
+*/
 app.get('/locate-stations/json',
     function(req, res) {
         if (req.query.line === null || req.query.line === undefined) {
