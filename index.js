@@ -3,6 +3,7 @@
 const express = require('express');
 const app = express();
 const Sequelize = require('sequelize');
+const Op = Sequelize.Op;
 const moment = require('moment');
 
 // Establish a connection to the database.
@@ -34,15 +35,17 @@ sequelize
     console.error('Unable to connect to the database:', err);
   });
 
-// TODO: What is wrong with this model definition?
 // Define a stops model.
 const Stop = sequelize.define('Stops', {
+    authority_id: {type: Sequelize.INTEGER, primaryKey: true},
     stop_id: {type: Sequelize.STRING},
     stop_name: {type: Sequelize.STRING},
     stop_lat: {type: Sequelize.REAL},
-    stop_long: {type: Sequelize.REAL},
+    stop_lon: {type: Sequelize.REAL},
     authority_start_time: {type: Sequelize.REAL},
     authority_end_time: {type: Sequelize.REAL}
+}, {
+    timestamps: false
 });
 
 /*
@@ -51,8 +54,10 @@ const Stop = sequelize.define('Stops', {
 */
 app.get('/locate-stations/json',
     function(req, res) {
-        console.log(req.query);
+        // console.log(req.query);
+        res.setHeader('Content-Type', 'application/json');
 
+        // Query validation.
         if (!req.query.line) {
             res.status(400).send({
                 status: "Error",
@@ -75,18 +80,38 @@ app.get('/locate-stations/json',
             });
         }
 
+        // Validation passed, now let's do stuff.
         else {
-            req.query.time = moment(req.query.time);
-            Stop.findOne().then(stop => {
-                console.log(stop.stop_id);
-                // let x = req.query.x;
-                // let y = req.query.y;
-                // let name = req.query.name;
-                // let time = moment(req.query.time);
-                // let line = req.query.line;
-                console.log(req.query);
-                res.send('Hello World!')
-            });
+            // req.query.time = moment(req.query.time);
+            const unix_ts = moment(req.query.time).unix();
+
+            if (req.query.name) {
+                Stop.findAll({
+                    where: {
+                        authority_start_time: {[Op.lt]: [unix_ts]},
+                        authority_end_time: {[Op.gt]: [unix_ts]},
+                        stop_name: {[Op.eq]: [req.query.name]}
+                    }
+                }).then(
+                    resultSet => {
+                        if (resultSet.length > 0) {
+                            res.send(resultSet[0]);
+                        } else {
+                            // Finding the stop using an exact name match failed. Now we need to geolocate.
+                            // TODO: Implement this match!
+                            Stops.findOne({
+                                where: {
+                                    authority_start_time: {[Op.lt]: [unix_ts]},
+                                    authority_end_time: {[Op.gt]: [unix_ts]}
+                                }
+                            }).then(
+                            )
+                        }
+                    }
+                );
+
+            }
+
         }
 });
 

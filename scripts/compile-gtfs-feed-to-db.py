@@ -42,11 +42,20 @@ def run(gtfs, authority_start_time, authority_end_time, db):
 
     import pdb; pdb.set_trace()
 
+    stime = datetime.strptime(authority_start_time, "%Y-%m-%dT%H:%M").timestamp()
+    etime = datetime.strptime(authority_end_time, "%Y-%m-%dT%H:%M").timestamp()
+
+    # Hack an index. The Node.JS ORM I am using sort-of assumes we create some sort of index.
+    utime = stime + (etime - stime) - 1522555000
+
     df = pd.read_csv(io.StringIO(zfc))
-    df = df.assign(authority_start_time=datetime.strptime(authority_start_time, "%Y-%m-%dT%H:%M").timestamp(),
-                   authority_end_time=datetime.strptime(authority_end_time, "%Y-%m-%dT%H:%M").timestamp())
+    df = df.assign(authority_start_time=stime,
+                   authority_end_time=etime,
+                   authority_id=df.index.map(lambda v: int("{0}{1}".format(utime, v).strip('0').replace(".", "")))
+                   ).set_index('authority_id')
     conn = sqlite3.connect(db)
-    df.to_sql("Stops", conn, if_exists='append', index=False)
+
+    df.to_sql("Stops", conn, if_exists='append')
 
 
 if __name__ == '__main__':
