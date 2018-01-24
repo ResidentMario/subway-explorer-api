@@ -36,7 +36,7 @@ sequelize
   });
 
 // Define a stops model.
-const Stop = sequelize.define('Stops', {
+const Stops = sequelize.define('Stops', {
     authority_id: {type: Sequelize.INTEGER, primaryKey: true},
     stop_id: {type: Sequelize.STRING},
     stop_name: {type: Sequelize.STRING},
@@ -82,11 +82,10 @@ app.get('/locate-stations/json',
 
         // Validation passed, now let's do stuff.
         else {
-            // req.query.time = moment(req.query.time);
             const unix_ts = moment(req.query.time).unix();
 
             if (req.query.name) {
-                Stop.findAll({
+                Stops.findAll({
                     where: {
                         authority_start_time: {[Op.lt]: [unix_ts]},
                         authority_end_time: {[Op.gt]: [unix_ts]},
@@ -100,11 +99,24 @@ app.get('/locate-stations/json',
                             // Finding the stop using an exact name match failed. Now we need to geolocate.
                             // TODO: Implement this match!
                             Stops.findOne({
+                                attributes: [
+                                    [
+                                        sequelize.literal(
+                                            `ABS(${req.query.x} - stop_lon) + ABS(${req.query.y} - stop_lat)`
+                                        ),
+                                        'taxicab_dist'
+                                    ],
+                                    'stop_id', 'stop_name', 'stop_lat', 'stop_lon',
+                                    'authority_start_time', 'authority_end_time'
+                                ],
                                 where: {
                                     authority_start_time: {[Op.lt]: [unix_ts]},
                                     authority_end_time: {[Op.gt]: [unix_ts]}
-                                }
+                                },
+                                order: [[sequelize.col('taxicab_dist'), 'ASC']],
+                                limit: 1
                             }).then(
+                                result => res.send(result)
                             )
                         }
                     }
