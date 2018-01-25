@@ -164,6 +164,7 @@ app.get('/poll-travel-times/json',
 
             // SELECT * FROM Logbooks WHERE unique_trip_id IN (SELECT unique_trip_id FROM Logbooks WHERE route_id = "6"
             // AND "stop_id" == "604S" AND minimum_time > 1516253092 ORDER BY minimum_time LIMIT 1);
+            // http://localhost:3000/poll-travel-times/json?line=2&start=201N&end=231N&timestamps=2017-01-18T12:00|2017-01-18T12:30
             req.query.timestamps.forEach(ts => {
                 Logbooks.findOne({
                     attributes: ['unique_trip_id'],
