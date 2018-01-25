@@ -48,6 +48,20 @@ const Stops = sequelize.define('Stops', {
     timestamps: false
 });
 
+const Logbooks = sequelize.define('Logbooks', {
+    event_id: {type: Sequelize.INTEGER, primaryKey: true},
+    trip_id: {type: Sequelize.STRING},
+    unique_trip_id: {type: Sequelize.STRING},
+    route_id: {type: Sequelize.STRING},
+    action: {type: Sequelize.STRING},
+    minimum_time: {type: Sequelize.REAL},
+    maximum_time: {type: Sequelize.REAL},
+    stop_id: {type: Sequelize.STRING},
+    latest_information_time: {type: Sequelize.REAL}
+}, {
+    timestamps: false
+});
+
 /*
    I need to define another middleware script for writing GTFS stations.txt records to the database so that it can
    queried using this function.
@@ -91,40 +105,90 @@ app.get('/locate-stations/json',
                         authority_end_time: {[Op.gt]: [unix_ts]},
                         stop_name: {[Op.eq]: [req.query.name]}
                     }
-                }).then(
-                    resultSet => {
-                        if (resultSet.length > 0) {
-                            res.send(resultSet[0]);
-                        } else {
-                            // Finding the stop using an exact name match failed. Now we need to geolocate.
-                            // TODO: Implement this match!
-                            Stops.findOne({
-                                attributes: [
-                                    [
-                                        sequelize.literal(
-                                            `ABS(${req.query.x} - stop_lon) + ABS(${req.query.y} - stop_lat)`
-                                        ),
-                                        'taxicab_dist'
-                                    ],
-                                    'stop_id', 'stop_name', 'stop_lat', 'stop_lon',
-                                    'authority_start_time', 'authority_end_time'
+                })
+                .then(resultSet => {
+                    if (resultSet.length > 0) {
+                        res.send(resultSet[0]);
+                    } else {
+                        // Finding the stop using an exact name match failed. Now we need to geolocate.
+                        // TODO: Implement this match!
+                        Stops.findOne({
+                            attributes: [
+                                [
+                                    sequelize.literal(
+                                        `ABS(${req.query.x} - stop_lon) + ABS(${req.query.y} - stop_lat)`
+                                    ),
+                                    'taxicab_dist'
                                 ],
-                                where: {
-                                    authority_start_time: {[Op.lt]: [unix_ts]},
-                                    authority_end_time: {[Op.gt]: [unix_ts]}
-                                },
-                                order: [[sequelize.col('taxicab_dist'), 'ASC']],
-                                limit: 1
-                            }).then(
-                                result => res.send(result)
-                            )
-                        }
+                                'stop_id', 'stop_name', 'stop_lat', 'stop_lon',
+                                'authority_start_time', 'authority_end_time'
+                            ],
+                            where: {
+                                authority_start_time: {[Op.lt]: [unix_ts]},
+                                authority_end_time: {[Op.gt]: [unix_ts]}
+                            },
+                            order: [[sequelize.col('taxicab_dist'), 'ASC']],
+                            limit: 1
+                        }).then(result => res.send(result))
                     }
-                );
+                });
 
             }
 
         }
 });
+
+app.get('/poll-travel-times/json',
+    function(req, res) {
+        // console.log(req.query);
+        res.setHeader('Content-Type', 'application/json');
+
+        function missing(text) { return {status: "Error", message: `Missing ${text}.`}; }
+
+        // Query validation.
+        if (!req.query.start) {
+            res.status(400).send(missing('starting stop'));
+        } else if (!req.query.end) {
+            res.status(400).send(missing('ending stop'));
+        } else if (!req.query.line) {
+            res.status(400).send(missing('line'));
+        } else if (!req.query.timestamps) {
+            res.status(400).send(missing('timestamps'));
+        }
+
+        // Validation passed, now let's do stuff.
+        else {
+            req.query.timestamps = req.query.timestamps.split("|").map(ts => moment(ts).unix());
+
+            let result_set = [];
+
+            // SELECT * FROM Logbooks WHERE unique_trip_id IN (SELECT unique_trip_id FROM Logbooks WHERE route_id = "6"
+            // AND "stop_id" == "604S" AND minimum_time > 1516253092 ORDER BY minimum_time LIMIT 1);
+            req.query.timestamps.forEach(ts => {
+                Logbooks.findOne({
+                    attributes: ['unique_trip_id'],
+                    where: {
+                        minimum_time: {[Op.gt]: [ts]},
+                        stop_id: {[Op.eq]: [req.query.start]}
+                    },
+                    order: [[sequelize.col('minimum_time'), 'ASC']],
+                    limit: 1
+                })
+                .then(function(result) {
+                    Logbooks.findAll({
+                        where: {
+                            unique_trip_id: {[Op.eq]: [result.unique_trip_id]}
+                        },
+                        order: [[sequelize.col('minimum_time'), 'ASC']]
+                    })
+                .then(result => { result_set.push(result); console.log(result); });
+                })
+                // TODO: async troubles?
+                // TODO: Function-ize. Unroll to handle instances when a trip drops before hitting the target end station.
+                .then(() => res.send(result_set));
+            });
+
+        }
+    });
 
 app.listen(3000);
