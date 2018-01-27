@@ -90,7 +90,7 @@ app.get('/poll-travel-times/json',
         } else if (!req.query.timestamps) {
             res.status(400).send(missing('timestamps'));
         } else {
-            api.pollTravelTimes(req, sequelize, Logbooks);
+            api.pollTravelTimes(req, sequelize, Logbooks).then(r => res.send(r));
         }
 });
 
