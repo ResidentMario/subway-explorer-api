@@ -1,3 +1,5 @@
+// TODO: Recheck the Google Maps API output format to ensure intermediary routing stops are included!
+// TODO: (assuming yes) Reformat the routing information with a "stops=start|next|next|next|next|end" format.
 // URI: http://localhost:3000/locate-stations/json?line=2&x=10&y=40&name=%22The%20Road%22&time=2018-01-18T12:00
 
 const express = require('express');
@@ -160,36 +162,68 @@ app.get('/poll-travel-times/json',
         else {
             req.query.timestamps = req.query.timestamps.split("|").map(ts => moment(ts).unix());
 
-            let result_set = [];
-
             // SELECT * FROM Logbooks WHERE unique_trip_id IN (SELECT unique_trip_id FROM Logbooks WHERE route_id = "6"
             // AND "stop_id" == "604S" AND minimum_time > 1516253092 ORDER BY minimum_time LIMIT 1);
             // http://localhost:3000/poll-travel-times/json?line=2&start=201N&end=231N&timestamps=2017-01-18T12:00|2017-01-18T12:30
-            req.query.timestamps.forEach(ts => {
-                Logbooks.findOne({
-                    attributes: ['unique_trip_id'],
-                    where: {
-                        minimum_time: {[Op.gt]: [ts]},
-                        stop_id: {[Op.eq]: [req.query.start]}
-                    },
-                    order: [[sequelize.col('minimum_time'), 'ASC']],
-                    limit: 1
-                })
-                .then(function(result) {
-                    Logbooks.findAll({
-                        where: {
-                            unique_trip_id: {[Op.eq]: [result.unique_trip_id]}
-                        },
-                        order: [[sequelize.col('minimum_time'), 'ASC']]
-                    })
-                .then(result => { result_set.push(result); console.log(result); });
-                })
-                // TODO: async troubles?
-                // TODO: Function-ize. Unroll to handle instances when a trip drops before hitting the target end station.
-                .then(() => res.send(result_set));
+            let result_set = req.query.timestamps.map(function(ts) {
+                return fastest_subsequence(req.query.start, req.query.end, ts);
+            });
+            // let result_set = req.query.timestamps.map(function(ts) {
+            //     return Logbooks.findOne({
+            //         attributes: ['unique_trip_id'],
+            //         where: {
+            //             minimum_time: {[Op.gt]: [ts]},
+            //             stop_id: {[Op.eq]: [req.query.start]}
+            //         },
+            //         order: [[sequelize.col('minimum_time'), 'ASC']],
+            //         limit: 1
+            //     })
+            //     .then(function(result) {
+            //         return Logbooks.findAll({
+            //             where: {
+            //                 unique_trip_id: {[Op.eq]: [result.unique_trip_id]}
+            //             },
+            //             order: [[sequelize.col('minimum_time'), 'ASC']]
+            //         })
+            //     }).then(function(result) {
+            //         result.map(function(r) { console.log(r.stop_id); console.log(req.query.end)});
+            //
+            //         if (result.some(r => r.stop_id === req.query.end)) {
+            //             console.log("Success");
+            //         } else {
+            //             console.log("Failure");
+            //         }
+            //
+            //     });
+            // });
+
+            Promise.all(result_set).then(result_set => {
+                console.log(result_set);
+                res.send("Foo");
             });
 
         }
-    });
+});
+
+// Helper function that returns the fastest stop subsequence.
+function fastest_subsequence(start, end, ts) {
+    return Logbooks.findOne({
+        attributes: ['unique_trip_id'],
+        where: {
+            minimum_time: {[Op.gt]: [ts]},
+            stop_id: {[Op.eq]: [start]}
+        },
+        order: [[sequelize.col('minimum_time'), 'ASC']],
+        limit: 1
+    })
+    .then(function(result) {
+        return Logbooks.findAll({
+            where: {
+                unique_trip_id: {[Op.eq]: [result.unique_trip_id]}
+            },
+            order: [[sequelize.col('minimum_time'), 'ASC']]
+        })
+    })
+}
 
 app.listen(3000);
