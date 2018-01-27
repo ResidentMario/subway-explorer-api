@@ -70,7 +70,7 @@ app.get('/locate-stations/json',
         } else if (!req.query.name && (!req.query.x && !req.query.y)) {
             res.status(400).send({status: "Error", message: "Neither station coordinates nor station name provided."})
         } else {
-            api.locateStation(req, Stops, sequelize).then(r => res.send(r));
+            api.locateStation(req, sequelize, Stops).then(r => res.send(r));
         }
 });
 
@@ -90,7 +90,7 @@ app.get('/poll-travel-times/json',
         } else if (!req.query.timestamps) {
             res.status(400).send(missing('timestamps'));
         } else {
-            api.pollTravelTimes(req, sequelize, Logbooks).then(r => res.send(r));
+            api.pollTravelTimes(req, sequelize, Logbooks).then(r => { console.log("Bar"); res.send(r) });
         }
 });
 

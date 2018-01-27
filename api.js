@@ -3,7 +3,7 @@ const Op = Sequelize.Op;
 const moment = require('moment');
 
 
-function locateStation(req, Stops, sequelize) {
+function locateStation(req, sequelize, Stops) {
     // Find the stop_id for a given latitude, longitude pair.
 
     const unix_ts = moment(req.query.time).unix();
@@ -35,15 +35,17 @@ function pollTravelTimes(req, sequelize, Logbooks) {
     // AND "stop_id" == "604S" AND minimum_time > 1516253092 ORDER BY minimum_time LIMIT 1);
     // http://localhost:3000/poll-travel-times/json?line=2&start=201N&end=231N&timestamps=2017-01-18T12:00|2017-01-18T12:30
     let result_set = req.query.timestamps.map(function(ts) {
-        let subseq = fastestSubsequence(req.query.start, req.query.end, ts, sequelize, Logbooks);
+        let subseq = fastestSubsequence(req.query.start, ts, req.query.line, sequelize, Logbooks);
 
         return subseq.then(function(subseq) {
             if (subseq.map(s => s.dataValues.stop_id).some(s => (s === req.query.end))) {
-                let last_id = subseq.findIndex(s => s.dataValues.stop_id === req.query.end);
-                const idx = Array.from(Array(last_id).keys());
-                // console.log(subseq);
-                return subseq[idx];
+                // If the closest sub-sequence we discovered includes the desired end stop, we are done.
+
+                let idx_stop = subseq.findIndex(s => s.dataValues.stop_id === req.query.end);
+                return subseq.filter((s, idx) => idx <= idx_stop);
             } else {
+                // Otherwise, we must try to find a new sub-sequence, starting from where the old one left off.
+                // TODO: Implement!
                 return {};
             }
         });
@@ -54,13 +56,14 @@ function pollTravelTimes(req, sequelize, Logbooks) {
     });
 }
 
-// Helper function that returns the fastest stop subsequence.
-function fastestSubsequence(start, end, ts, sequelize, Logbooks) {
+function fastestSubsequence(start, ts, route, sequelize, Logbooks) {
+    // Subroutine. Returns the trip on the given route which has the earliest start time after the given ts.
     return Logbooks.findOne({
         attributes: ['unique_trip_id'],
         where: {
             minimum_time: {[Op.gt]: [ts]},
-            stop_id: {[Op.eq]: [start]}
+            stop_id: {[Op.eq]: [start]},
+            route_id: {[Op.eq]: [route]}
         },
         order: [[sequelize.col('minimum_time'), 'DESC']],
         limit: 1
