@@ -3,17 +3,31 @@ const api = require('../api.js');
 const db = require('../db.js');
 
 
-// TODO: Don't re-use the existing DB for testing.
-const sequelize = db.sequelize('./scripts/logbooks.sqlite', {logging: false});
+// Define the test database layer.
+const db_fp = './test/test.sqlite';
+const sqlite = require('sqlite3');
+new sqlite.Database(db_fp);
+const sequelize = db.sequelize(db_fp, {logging: false});
 const [Stops, Logbooks] = [db.Stops(sequelize), db.Logbooks(sequelize)];
+sequelize.sync({force: true});
 
 
 describe('locateStation', function() {
-    it('returns the station nearest to the given coordinates', function(done) {
-        let query = {query: {time:'2018-01-18T12:00', x:40.6, y:-73.75, heading:'N', line:'A'}};
+    beforeEach(function(done) {
+        Promise.all([Stops.sync({force: true}), Logbooks.sync({force: true})]).then(() => done());
+    });
 
-        let p = api.locateStation(query, sequelize, Stops).then(function(station) {
-            assert.equal(station.stop_id, "H11N");
+    it('returns the station nearest to the given coordinates', function(done) {
+
+        Stops.bulkCreate([
+            {authority_id: 0, stop_id: "1N", stop_name: "Expected", stop_lat: 0, stop_lon:0,
+                authority_start_time: 0, authority_end_time: 2000000000, route_id: "TST"}
+        ])
+        .then(() => api.locateStation(
+            {query: {time:'2000-01-01T00:00', x:0.1, y:-0.1, heading:'N', line:'TST'}}, sequelize, Stops
+            )
+        ).then(function(result) {
+            assert.equal(result.dataValues.stop_id, "1N");
             done();
         });
     })

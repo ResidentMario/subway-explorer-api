@@ -37,7 +37,8 @@ function Stops(sequelize) {
         stop_lat: {type: Sequelize.REAL},
         stop_lon: {type: Sequelize.REAL},
         authority_start_time: {type: Sequelize.REAL},
-        authority_end_time: {type: Sequelize.REAL}
+        authority_end_time: {type: Sequelize.REAL},
+        route_id: {type: Sequelize.STRING}
     }, {
         timestamps: false
     });
