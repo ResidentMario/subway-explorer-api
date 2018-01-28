@@ -47,7 +47,7 @@ describe('locateStation', function() {
 describe('fastestSubsequence', function() {
     beforeEach(resetdb);
 
-    it('correctly handles valid input', function(done) {
+    it('correctly handles simple valid input', function(done) {
         Logbooks.bulkCreate([
             {
                 event_id: 0, trip_id: "_", unique_trip_id: "_", route_id: "TST_ROUTE", action: "_",
@@ -98,6 +98,57 @@ describe('fastestSubsequence', function() {
             assert.equal(result.length, 2);
             assert.equal(result[0].unique_trip_id, "PLS_CATCH");
             assert.equal(result[1].unique_trip_id, "PLS_CATCH");
+            done();
+        });
+    });
+});
+
+
+describe('pollTravelTime', function() {
+    beforeEach(resetdb);
+
+    it('correctly handles simple (non-recursive) valid input', function(done) {
+        Logbooks.bulkCreate([
+            {
+                event_id: 0, trip_id: "_", unique_trip_id: "_", route_id: "TST_ROUTE", action: "_",
+                minimum_time: 0, maximum_time: 1, stop_id: "START_STOP", latest_information_time: 1
+            },
+            {
+                event_id: 1, trip_id: "_", unique_trip_id: "_", route_id: "TST_ROUTE", action: "_",
+                minimum_time: 1, maximum_time: 2, stop_id: "END_STOP", latest_information_time: 2
+            }
+        ])
+        .then(() => api._pollTravelTime("START_STOP", "END_STOP", 0, "TST_ROUTE", [], sequelize, Logbooks))
+        .then(function(result) {
+            assert.equal(result.results.length, 2);
+            done();
+        });
+    });
+
+    it('correctly handles simple (non-recursive) service variation input', function(done) {
+        Logbooks.bulkCreate([
+            {
+                event_id: 0, trip_id: "_", unique_trip_id: "_", route_id: "TST_ROUTE", action: "_",
+                minimum_time: 3601, maximum_time: 3602, stop_id: "START_STOP", latest_information_time: 3602
+            }
+        ])
+        .then(() => api._pollTravelTime("START_STOP", "END_STOP", 0, "TST_ROUTE", [], sequelize, Logbooks))
+        .then(function(result) {
+            assert.equal(result.status, "POSSIBLE_SERVICE_VARIATION");
+            done();
+        });
+    });
+
+    it('correctly handles simple (non-recursive) empty input', function(done) {
+        Logbooks.bulkCreate([
+            {
+                event_id: 0, trip_id: "_", unique_trip_id: "_", route_id: "TST_ROUTE", action: "_",
+                minimum_time: 0, maximum_time: 1, stop_id: "START_STOP", latest_information_time: 1
+            }
+        ])
+        .then(() => api._pollTravelTime("START_STOP", "END_STOP", 0, "TST_BAD_ROUTE", [], sequelize, Logbooks))
+        .then(function(result) {
+            assert.equal(result.status, "NO_TRIPS_FOUND");
             done();
         });
     });

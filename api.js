@@ -47,13 +47,13 @@ function pollTravelTimes(req, sequelize, Logbooks) {
     // AND "stop_id" == "604S" AND minimum_time > 1516253092 ORDER BY minimum_time LIMIT 1);
     // http://localhost:3000/poll-travel-times/json?line=2&start=201N&end=231N&timestamps=2017-01-18T12:00|2017-01-18T12:30
     let result_set = req.query.timestamps.map(function(ts) {
-        return pollTravelTime(req.query.start, req.query.end, ts, req.query.line, Array(), sequelize, Logbooks);
+        return _pollTravelTime(req.query.start, req.query.end, ts, req.query.line, Array(), sequelize, Logbooks);
     });
 
     return Promise.all(result_set).then(result_set => { return result_set });
 }
 
-function pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
+function _pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
     // Subroutine. Uses fastestSubsequence to return the trip on the given route which has the earliest start time
     // after the given ts, and also ensures that said trip occurred within one hour of the given timestamp.
     //
@@ -95,7 +95,7 @@ function pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
 
             ignore.push(end_record.dataValues.unique_trip_id);
 
-            return pollTravelTime(new_start, end, ts, line, ignore, sequelize, Logbooks).then(function(next_subseq) {
+            return _pollTravelTime(new_start, end, ts, line, ignore, sequelize, Logbooks).then(function(next_subseq) {
                 return {status: next_subseq.status, results: subseq.concat(next_subseq)}
             });
 
@@ -128,7 +128,10 @@ function _fastestSubsequence(start, ts, route, ignore, sequelize, Logbooks) {
     })
 }
 
-
+// Externally facing.
 exports.locateStation = locateStation;
 exports.pollTravelTimes = pollTravelTimes;
+
+// Exported for testing.
 exports._fastestSubsequence = _fastestSubsequence;
+exports._pollTravelTime = _pollTravelTime;
