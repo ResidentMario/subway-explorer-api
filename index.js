@@ -5,13 +5,13 @@ const api = require('./api.js');
 const db = require('./db.js');
 
 
-const sequelize = db.sequelize();
+const sequelize = db.sequelize('./scripts/logbooks.sqlite');
 const [Stops, Logbooks] = [db.Stops(sequelize), db.Logbooks(sequelize)];
 
 
 function missing(text) { return {status: "Error", message: `Missing ${text}.`}; }
 
-// Example URI: http://localhost:3000/locate-stations/json?line=2&x=73.75&y=-73.75&time=2018-01-18T12:00
+// Example URI: http://localhost:3000/locate-stations/json?line=A&x=73.75&y=-73.75&heading=N&time=2018-01-18T12:00
 app.get('/locate-stations/json',
     function(req, res) {
         res.setHeader('Content-Type', 'application/json');

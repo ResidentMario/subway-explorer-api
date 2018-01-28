@@ -1,6 +1,6 @@
 const Sequelize = require('sequelize');
 
-function sequelize() {
+function sequelize(fp, opts) {
     // Establish a connection to the database.
     return new Sequelize('database', 'username', 'password', {
         host: 'localhost',
@@ -11,8 +11,9 @@ function sequelize() {
             acquire: 30000,
             idle: 10000
         },
-        storage: './scripts/logbooks.sqlite',
-        operatorsAliases: false
+        storage: fp,
+        operatorsAliases: false,
+        ...opts
     });
 
     // Authenticate the connection.

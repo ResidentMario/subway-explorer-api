@@ -74,7 +74,8 @@ def run(gtfs, authority_start_time, authority_end_time, db):
     c.execute("DROP TABLE StopsTemp;")
     conn.commit()
 
-    df.to_sql("Stops", conn, if_exists='append')
+    df[['stop_id', 'stop_name', 'stop_lat', 'stop_lon', 'authority_start_time',
+        'authority_end_time', 'route_id']].to_sql("Stops", conn, if_exists='append')
 
 
 if __name__ == '__main__':
