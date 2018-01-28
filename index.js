@@ -1,4 +1,3 @@
-// URI: http://localhost:3000/locate-stations/json?line=2&x=10&y=40&name=%22The%20Road%22&time=2018-01-18T12:00
 const express = require('express');
 const app = express();
 const Sequelize = require('sequelize');
@@ -58,6 +57,7 @@ const Logbooks = sequelize.define('Logbooks', {
     timestamps: false
 });
 
+// URI: http://localhost:3000/locate-stations/json?line=2&x=73.75&y=-73.75&time=2018-01-18T12:00
 app.get('/locate-stations/json',
     function(req, res) {
         res.setHeader('Content-Type', 'application/json');
@@ -74,6 +74,7 @@ app.get('/locate-stations/json',
         }
 });
 
+// URI: http://localhost:3000/poll-travel-times/json?line=2&start=201N&end=235N&timestamps=2018-01-18T09:53
 app.get('/poll-travel-times/json',
     function(req, res) {
         res.setHeader('Content-Type', 'application/json');

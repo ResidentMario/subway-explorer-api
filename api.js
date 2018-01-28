@@ -35,17 +35,23 @@ function pollTravelTimes(req, sequelize, Logbooks) {
     // AND "stop_id" == "604S" AND minimum_time > 1516253092 ORDER BY minimum_time LIMIT 1);
     // http://localhost:3000/poll-travel-times/json?line=2&start=201N&end=231N&timestamps=2017-01-18T12:00|2017-01-18T12:30
     let result_set = req.query.timestamps.map(function(ts) {
-        return pollTravelTime(req.query.start, req.query.end, ts, req.query.line, sequelize, Logbooks);
+        return pollTravelTime(req.query.start, req.query.end, ts, req.query.line, Array(), sequelize, Logbooks);
     });
 
     return Promise.all(result_set).then(result_set => { return result_set });
 }
 
-function pollTravelTime(start, end, ts, line, sequelize, Logbooks) {
+function pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
     // Subroutine. Uses fastestSubsequence to return the trip on the given route which has the earliest start time
-    // after the given ts, and also ensures that said trip occurred within one hour of the given timestamp. This
-    // caveat is used to back out of returning results in times of service variations.
-    let subseq = fastestSubsequence(start, ts, line, sequelize, Logbooks);
+    // after the given ts, and also ensures that said trip occurred within one hour of the given timestamp.
+    //
+    // This approach is used to model a reasonable arrival time estimate (when the trains are running normally) while
+    // backing out of estimating unreasonable ones (when trains are rerouted onto different lines, e.g. not running) in
+    // a computationally tractable way.
+    //
+    // An additional bit of sophistication is required for cases where the stop of interest is also the last one in the
+    // message.
+    let subseq = fastestSubsequence(start, ts, line, ignore, sequelize, Logbooks);
 
     return subseq.then(function(subseq) {
         if (subseq.length === 0) {
@@ -64,37 +70,42 @@ function pollTravelTime(start, end, ts, line, sequelize, Logbooks) {
 
             // If the closest sub-sequence we discovered includes the desired end stop, we are done.
             let idx_end = subseq.findIndex(s => s.dataValues.stop_id === end);
-            console.log(subseq);
             return {status: "OK", results: subseq.filter((s, idx) => (idx <= idx_end))};
 
         } else {
 
             // Otherwise, we must try to find a new sub-sequence, starting from where the old one left off.
             console.log("Hit the pathfinder code path.");
+
             let end_record = subseq[subseq.length - 1];
+            console.log(end_record);
             let [new_start, new_ts] = [end_record.dataValues.stop_id, end_record.dataValues.maximum_time];
-            return pollTravelTime(new_start, end, ts, line, sequelize, Logbooks).then(function(next_subseq) {
-                return {status: next_subseq.status, results: subseq.results.push(...next_subseq.results)}
+
+            ignore.push(end_record.dataValues.unique_trip_id);
+
+            return pollTravelTime(new_start, end, ts, line, ignore, sequelize, Logbooks).then(function(next_subseq) {
+                return {status: next_subseq.status, results: subseq.concat(next_subseq)}
             });
 
         }
     });
 }
 
-function fastestSubsequence(start, ts, route, sequelize, Logbooks) {
+function fastestSubsequence(start, ts, route, ignore, sequelize, Logbooks) {
     // Subroutine. Returns the trip on the given route which has the earliest start time after the given ts.
     return Logbooks.findOne({
         attributes: ['unique_trip_id'],
         where: {
             maximum_time: {[Op.gt]: [ts]},
             stop_id: {[Op.eq]: [start]},
-            route_id: {[Op.eq]: [route]}
+            route_id: {[Op.eq]: [route]},
+            unique_trip_id: {[Op.notIn]: [ignore]}
         },
         order: [[sequelize.col('minimum_time'), 'ASC']],
         limit: 1
     })
     .then(function(result) {
-        if (!result) { return [] }
+        if (!result) { return [] }  // The empty list is turned into a NO_TRIPS_FOUND status upstream.
 
         return Logbooks.findAll({
             where: {
