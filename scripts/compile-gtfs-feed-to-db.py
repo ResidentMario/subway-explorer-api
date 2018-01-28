@@ -51,6 +51,7 @@ def run(gtfs, authority_start_time, authority_end_time, db):
                    authority_end_time=etime,
                    authority_id=df.index.map(lambda v: int("{0}{1}".format(utime, v).strip('0').replace(".", "")))
                    ).set_index('authority_id')
+    df = df[df.stop_id.map(lambda s: not s[-1].isdigit())]
     conn = sqlite3.connect(db)
     c = conn.cursor()
 
@@ -69,7 +70,6 @@ def run(gtfs, authority_start_time, authority_end_time, db):
 """
     ).fetchall()
     dominant_routes = [d[0] for d in dominant_routes]
-    import pdb; pdb.set_trace()
     df = df.assign(route_id=dominant_routes)
     c.execute("DROP TABLE StopsTemp;")
     conn.commit()

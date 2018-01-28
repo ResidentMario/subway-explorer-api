@@ -9,6 +9,8 @@ const sequelize = db.sequelize();
 const [Stops, Logbooks] = [db.Stops(sequelize), db.Logbooks(sequelize)];
 
 
+function missing(text) { return {status: "Error", message: `Missing ${text}.`}; }
+
 // Example URI: http://localhost:3000/locate-stations/json?line=2&x=73.75&y=-73.75&time=2018-01-18T12:00
 app.get('/locate-stations/json',
     function(req, res) {
@@ -16,11 +18,13 @@ app.get('/locate-stations/json',
 
         // Query validation.
         if (!req.query.line) {
-            res.status(400).send({status: "Error", message: "No line parameter provided."})
+            res.status(400).send(missing('line'));
         } else if (!req.query.time) {
-            res.status(400).send({status: "Error", message: "No time parameter provided."})
-        } else if (!req.query.name && (!req.query.x && !req.query.y)) {
-            res.status(400).send({status: "Error", message: "Neither station coordinates nor station name provided."})
+            res.status(400).send(missing('time'));
+        } else if (!req.query.x && !req.query.y) {
+            res.status(400).send(missing('coordinates'));
+        }  else if (!req.query.heading) {
+            res.status(400).send(missing('heading'));
         } else {
             api.locateStation(req, sequelize, Stops).then(r => res.send(r));
         }
@@ -30,8 +34,6 @@ app.get('/locate-stations/json',
 app.get('/poll-travel-times/json',
     function(req, res) {
         res.setHeader('Content-Type', 'application/json');
-
-        function missing(text) { return {status: "Error", message: `Missing ${text}.`}; }
 
         // Query validation.
         if (!req.query.start) {

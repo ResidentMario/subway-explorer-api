@@ -4,8 +4,7 @@ const moment = require('moment');
 
 
 function locateStation(req, sequelize, Stops) {
-    // Find the stop_id for a given latitude, longitude pair.
-    // TODO: Compute the heading too.
+    // Find the stop_id for a given (latitude, longitude) pair, route_id, and heading (N or S).
 
     const unix_ts = moment(req.query.time).unix();
 
@@ -22,10 +21,19 @@ function locateStation(req, sequelize, Stops) {
         ],
         where: {
             authority_start_time: {[Op.lt]: [unix_ts]},
-            authority_end_time: {[Op.gt]: [unix_ts]}
+            authority_end_time: {[Op.gt]: [unix_ts]},
+            route_id: {[Op.eq]: [req.query.line]}
         },
         order: [[sequelize.col('taxicab_dist'), 'ASC']],
         limit: 1
+    }).then(result => {
+        // Selecting the right stop sequence from the database requires that we get right not only the stop, but also
+        // the heading of the stop. We already removed parent stops in the table generation pre-processing, so the
+        // entries we get back from the query will only be "N" or "S". Since besides the heading the data for each of
+        // the stations is otherwise equivalent, we'll deal with selecting the right ID by hot-swapping the last
+        // character.
+        result.dataValues.stop_id = result.dataValues.stop_id.slice(0, -1) + req.query.heading;
+        return result;
     });
 }
 
