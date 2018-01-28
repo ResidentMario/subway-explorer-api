@@ -5,4 +5,5 @@ package-lock.json
 *.ipynb
 *.pickle
 *.sqlite
+*.sqlite-journal
 .DS_Store

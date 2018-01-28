@@ -27,13 +27,16 @@ function locateStation(req, sequelize, Stops) {
         order: [[sequelize.col('taxicab_dist'), 'ASC']],
         limit: 1
     }).then(result => {
+        if (!result) { return {status: "TIMESTAMP_OUT_OF_RANGE"} }
         // Selecting the right stop sequence from the database requires that we get right not only the stop, but also
         // the heading of the stop. We already removed parent stops in the table generation pre-processing, so the
         // entries we get back from the query will only be "N" or "S". Since besides the heading the data for each of
         // the stations is otherwise equivalent, we'll deal with selecting the right ID by hot-swapping the last
         // character.
-        result.dataValues.stop_id = result.dataValues.stop_id.slice(0, -1) + req.query.heading;
-        return result;
+        else {
+            result.dataValues.stop_id = result.dataValues.stop_id.slice(0, -1) + req.query.heading;
+            return Object.assign(result, {status: "OK"});
+        }
     });
 }
 
@@ -60,7 +63,7 @@ function pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
     //
     // An additional bit of sophistication is required for cases where the stop of interest is also the last one in the
     // message.
-    let subseq = fastestSubsequence(start, ts, line, ignore, sequelize, Logbooks);
+    let subseq = _fastestSubsequence(start, ts, line, ignore, sequelize, Logbooks);
 
     return subseq.then(function(subseq) {
         if (subseq.length === 0) {
@@ -100,7 +103,7 @@ function pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
     });
 }
 
-function fastestSubsequence(start, ts, route, ignore, sequelize, Logbooks) {
+function _fastestSubsequence(start, ts, route, ignore, sequelize, Logbooks) {
     // Subroutine. Returns the trip on the given route which has the earliest start time after the given ts.
     return Logbooks.findOne({
         attributes: ['unique_trip_id'],
@@ -128,3 +131,4 @@ function fastestSubsequence(start, ts, route, ignore, sequelize, Logbooks) {
 
 exports.locateStation = locateStation;
 exports.pollTravelTimes = pollTravelTimes;
+exports._fastestSubsequence = _fastestSubsequence;
