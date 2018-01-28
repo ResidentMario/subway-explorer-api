@@ -40,12 +40,10 @@ def run(gtfs, authority_start_time, authority_end_time, db):
 
     zfc = zf.open("stops.txt").read().decode('utf-8')
 
-    import pdb; pdb.set_trace()
-
     stime = datetime.strptime(authority_start_time, "%Y-%m-%dT%H:%M").timestamp()
     etime = datetime.strptime(authority_end_time, "%Y-%m-%dT%H:%M").timestamp()
 
-    # Hack an index. The Node.JS ORM I am using sort-of assumes we create some sort of index.
+    # Hack in an index. The Node.JS ORM I am using assumes we create some sort of index.
     utime = stime + (etime - stime) - 1522555000
 
     df = pd.read_csv(io.StringIO(zfc))
@@ -54,6 +52,27 @@ def run(gtfs, authority_start_time, authority_end_time, db):
                    authority_id=df.index.map(lambda v: int("{0}{1}".format(utime, v).strip('0').replace(".", "")))
                    ).set_index('authority_id')
     conn = sqlite3.connect(db)
+    c = conn.cursor()
+
+    # Create a temporary table for assigning values to. This is an unsightly hack.
+    # TODO: Find a better way to do this.
+    df.to_sql("StopsTemp", conn, if_exists='append')
+    dominant_routes = c.execute(
+"""
+    SELECT stop_routes.route_id
+        FROM (StopsTemp
+            LEFT JOIN 
+                (SELECT route_id, COUNT(route_id), stop_id 
+                FROM Logbooks 
+                GROUP BY stop_id) AS stop_routes 
+            ON StopsTemp.stop_id = stop_routes.stop_id);
+"""
+    ).fetchall()
+    dominant_routes = [d[0] for d in dominant_routes]
+    import pdb; pdb.set_trace()
+    df = df.assign(route_id=dominant_routes)
+    c.execute("DROP TABLE StopsTemp;")
+    conn.commit()
 
     df.to_sql("Stops", conn, if_exists='append')
 

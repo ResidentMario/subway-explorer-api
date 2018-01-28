@@ -5,6 +5,7 @@ const moment = require('moment');
 
 function locateStation(req, sequelize, Stops) {
     // Find the stop_id for a given latitude, longitude pair.
+    // TODO: Compute the heading too.
 
     const unix_ts = moment(req.query.time).unix();
 
