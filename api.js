@@ -63,16 +63,19 @@ function _pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
     //
     // An additional bit of sophistication is required for cases where the stop of interest is also the last one in the
     // message.
+    console.log("Searching: ", start, ts, line, ignore);
     let subseq = _fastestSubsequence(start, ts, line, ignore, sequelize, Logbooks);
 
     return subseq.then(function(subseq) {
         if (subseq.length === 0) {
 
+            console.log("Hit the none-found code path");
             // If no trips were found, return an empty result container.
             return {status: "NO_TRIPS_FOUND", results: {}};
 
         } else if ((+subseq[0].dataValues.maximum_time - ts) >= 3600) {
 
+            console.log("Hit the not-found-soon-enough code path");
             // If the trip found begins an hour or longer after the current timestamp, there is a high probability
             // that variant service is in effect. Our model can't return reasonable results in this case, so instead we
             // return a flag. Note that we must use maximum time here because minimum time may be null.
@@ -82,6 +85,7 @@ function _pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
 
             // If the closest sub-sequence we discovered includes the desired end stop, we are done.
             let idx_end = subseq.findIndex(s => s.dataValues.stop_id === end);
+            console.log(idx_end);
             return {status: "OK", results: subseq.filter((s, idx) => (idx <= idx_end))};
 
         } else {
@@ -90,13 +94,17 @@ function _pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
             console.log("Hit the pathfinder code path.");
 
             let end_record = subseq[subseq.length - 1];
-            console.log(end_record);
+            // console.log(end_record);
             let [new_start, new_ts] = [end_record.dataValues.stop_id, end_record.dataValues.maximum_time];
 
             ignore.push(end_record.dataValues.unique_trip_id);
 
             return _pollTravelTime(new_start, end, ts, line, ignore, sequelize, Logbooks).then(function(next_subseq) {
-                return {status: next_subseq.status, results: subseq.concat(next_subseq)}
+                if (next_subseq.status === "NO_TRIPS_FOUND" || next_subseq.status === "POSSIBLE_SERVICE_VARIATION") {
+                    return {status: next_subseq.status, results: []}
+                }
+
+                return {status: next_subseq.status, results: subseq.concat(next_subseq.results)}
             });
 
         }
