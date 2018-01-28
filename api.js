@@ -35,24 +35,49 @@ function pollTravelTimes(req, sequelize, Logbooks) {
     // AND "stop_id" == "604S" AND minimum_time > 1516253092 ORDER BY minimum_time LIMIT 1);
     // http://localhost:3000/poll-travel-times/json?line=2&start=201N&end=231N&timestamps=2017-01-18T12:00|2017-01-18T12:30
     let result_set = req.query.timestamps.map(function(ts) {
-        let subseq = fastestSubsequence(req.query.start, ts, req.query.line, sequelize, Logbooks);
-
-        return subseq.then(function(subseq) {
-            if (subseq.map(s => s.dataValues.stop_id).some(s => (s === req.query.end))) {
-                // If the closest sub-sequence we discovered includes the desired end stop, we are done.
-
-                let idx_stop = subseq.findIndex(s => s.dataValues.stop_id === req.query.end);
-                return subseq.filter((s, idx) => idx <= idx_stop);
-            } else {
-                // Otherwise, we must try to find a new sub-sequence, starting from where the old one left off.
-                // TODO: Implement!
-                return {};
-            }
-        });
+        return pollTravelTime(req.query.start, req.query.end, ts, req.query.line, sequelize, Logbooks);
     });
 
-    return Promise.all(result_set).then(result_set => {
-        return result_set;
+    return Promise.all(result_set).then(result_set => { return result_set });
+}
+
+function pollTravelTime(start, end, ts, line, sequelize, Logbooks) {
+    // Subroutine. Uses fastestSubsequence to return the trip on the given route which has the earliest start time
+    // after the given ts, and also ensures that said trip occurred within one hour of the given timestamp. This
+    // caveat is used to back out of returning results in times of service variations.
+    let subseq = fastestSubsequence(start, ts, line, sequelize, Logbooks);
+
+    return subseq.then(function(subseq) {
+        if (subseq.length === 0) {
+
+            // If no trips were found, return an empty result container.
+            return {status: "NO_TRIPS_FOUND", results: {}};
+
+        } else if ((+subseq[0].dataValues.maximum_time - ts) >= 3600) {
+
+            // If the trip found begins an hour or longer after the current timestamp, there is a high probability
+            // that variant service is in effect. Our model can't return reasonable results in this case, so instead we
+            // return a flag. Note that we must use maximum time here because minimum time may be null.
+            return {status: "POSSIBLE_SERVICE_VARIATION", results: {}};
+
+        } else if (subseq.map(s => s.dataValues.stop_id).some(s => (s === end))) {
+
+            // If the closest sub-sequence we discovered includes the desired end stop, we are done.
+            let idx_end = subseq.findIndex(s => s.dataValues.stop_id === end);
+            console.log(subseq);
+            return {status: "OK", results: subseq.filter((s, idx) => (idx <= idx_end))};
+
+        } else {
+
+            // Otherwise, we must try to find a new sub-sequence, starting from where the old one left off.
+            console.log("Hit the pathfinder code path.");
+            let end_record = subseq[subseq.length - 1];
+            let [new_start, new_ts] = [end_record.dataValues.stop_id, end_record.dataValues.maximum_time];
+            return pollTravelTime(new_start, end, ts, line, sequelize, Logbooks).then(function(next_subseq) {
+                return {status: next_subseq.status, results: subseq.results.push(...next_subseq.results)}
+            });
+
+        }
     });
 }
 
@@ -61,19 +86,21 @@ function fastestSubsequence(start, ts, route, sequelize, Logbooks) {
     return Logbooks.findOne({
         attributes: ['unique_trip_id'],
         where: {
-            minimum_time: {[Op.gt]: [ts]},
+            maximum_time: {[Op.gt]: [ts]},
             stop_id: {[Op.eq]: [start]},
             route_id: {[Op.eq]: [route]}
         },
-        order: [[sequelize.col('minimum_time'), 'DESC']],
+        order: [[sequelize.col('minimum_time'), 'ASC']],
         limit: 1
     })
     .then(function(result) {
+        if (!result) { return [] }
+
         return Logbooks.findAll({
             where: {
                 unique_trip_id: {[Op.eq]: [result.unique_trip_id]}
             },
-            order: [[sequelize.col('minimum_time'), 'DESC']]
+            order: [[sequelize.col('minimum_time'), 'ASC']]
         })
     })
 }

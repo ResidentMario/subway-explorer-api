@@ -48,10 +48,9 @@ def run(root, start_time, end_time, out):
         day_after_root = "{0}/{1}".format(feed_root, (start_datetime + timedelta(days=1)).strftime('%Y-%m-%d'))
 
         # TODO: Raise an error if there is not enough follow-up data to complete trips that extend past the end time.
-        # Raise an error if there is not enough follow-on data.
         # if not os.path.isdir(day_after_root):
         #     raise IOError("In order to account for trips that transition through day's end, please provide "
-        #                   "six hour's of data from the day following the chosen day.")
+        #                   "six hour's of data from the day following the chosen time span.")
 
         # Get the relevant feeds.
         #
@@ -123,11 +122,11 @@ def run(root, start_time, end_time, out):
 
         logbook = gt.utils.discard_partial_logs(logbook)
 
-        # Cut empty trips and trips that began on the follow-on day.
+        # Cut empty trips, singleton trips, and trips that began on the follow-on day.
         print("Cutting cancelled and follow-on-day trips...")
         trim = logbook.copy()
         for trip_id in tqdm(logbook.keys()):
-            if len(logbook[trip_id]) == 0:
+            if len(logbook[trip_id]) <= 1:
                 del trim[trip_id]
             else:
                 start_ts = logbook[trip_id].iloc[0]['latest_information_time']
