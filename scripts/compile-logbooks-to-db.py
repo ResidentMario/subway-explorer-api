@@ -5,7 +5,7 @@ containing only complete trips. It assumes that the data has already been locali
 
 E.g. how I've been using it:
 
-> python compile-logbooks.py ~/Desktop/subway-explorer-datastore/ '2018-01-18T00:00' '2018-01-18T12:00' .
+> python compile-logbooks-to-db.py ~/Desktop/subway-explorer-datastore/ '2018-01-18T00:00' '2018-01-18T12:00' .
 """
 
 import click
@@ -30,13 +30,11 @@ TERMINUS_TIME = 3
 @click.argument('out')
 def run(root, start_time, end_time, out):
     """
-    Specify a date (in %Y-%m-%d_%H:%M format, e.g. "2018-01-17_21:00"; a slight variant on the recommended ISO datetime
-    format using a "_" instead of a "T").
+    Specify a date (in %Y-%m-%dT%H:%M format, e.g. "2018-01-17T21:00".
     """
-    # import pdb; pdb.set_trace()
     conn = sqlite3.connect("{0}/logbooks.sqlite".format(out))
 
-    for feed_id in FEED_IDENTIFIERS:
+    for feed_id in [1]:  # FEED_IDENTIFIERS:
 
         print("Starting work on the feed with the ID '{0}'".format(feed_id))
         # Date format munging.
@@ -117,6 +115,10 @@ def run(root, start_time, end_time, out):
         # Cut cancelled and incomplete trips from the logbook. Note that we must exclude shuttles.
         print("Trimming cancelled and incomplete stops...")
         for trip_id in tqdm(logbook.keys()):
+            # TODO: Remove this once we're done debugging the mysterious case of the bad pickle.
+            if trip_id == "030600_2..N08R_569":
+                import pdb; pdb.set_trace()
+
             if len(logbook[trip_id]) > 0 and logbook[trip_id].iloc[0].route_id not in LOG_CUT_HEURISTIC_EXCEPTIONS:
                 logbook[trip_id] = gt.utils.cut_cancellations(logbook[trip_id])
 
