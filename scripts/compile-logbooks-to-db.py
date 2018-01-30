@@ -115,10 +115,6 @@ def run(root, start_time, end_time, out):
         # Cut cancelled and incomplete trips from the logbook. Note that we must exclude shuttles.
         print("Trimming cancelled and incomplete stops...")
         for trip_id in tqdm(logbook.keys()):
-            # TODO: Remove this once we're done debugging the mysterious case of the bad pickle.
-            if trip_id == "030600_2..N08R_569":
-                import pdb; pdb.set_trace()
-
             if len(logbook[trip_id]) > 0 and logbook[trip_id].iloc[0].route_id not in LOG_CUT_HEURISTIC_EXCEPTIONS:
                 logbook[trip_id] = gt.utils.cut_cancellations(logbook[trip_id])
 

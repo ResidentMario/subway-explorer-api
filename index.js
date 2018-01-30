@@ -5,7 +5,7 @@ const api = require('./api.js');
 const db = require('./db.js');
 
 
-const sequelize = db.sequelize('./scripts/logbooks.sqlite');
+const sequelize = db.sequelize('./logbooks.sqlite');
 const [Stops, Logbooks] = [db.Stops(sequelize), db.Logbooks(sequelize)];
 
 
@@ -30,7 +30,7 @@ app.get('/locate-stations/json',
         }
 });
 
-// Example URI: http://localhost:3000/poll-travel-times/json?line=2&start=201N&end=235N&timestamps=2018-01-18T09:53
+// Example URI: http://localhost:3000/poll-travel-times/json?line=2&start=247N&end=220N&timestamps=2018-01-18T02:00
 app.get('/poll-travel-times/json',
     function(req, res) {
         res.setHeader('Content-Type', 'application/json');
