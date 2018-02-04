@@ -45,12 +45,15 @@ function pollTravelTimes(req, sequelize, Logbooks) {
 
     // SELECT * FROM Logbooks WHERE unique_trip_id IN (SELECT unique_trip_id FROM Logbooks WHERE route_id = "6"
     // AND "stop_id" == "604S" AND minimum_time > 1516253092 ORDER BY minimum_time LIMIT 1);
-    // http://localhost:3000/poll-travel-times/json?line=2&start=201N&end=231N&timestamps=2017-01-18T12:00|2017-01-18T12:30
+    // http://localhost:3000/poll-travel-times/json?line=2&start=231N&end=229N&timestamps=2018-01-18T09:00
     let result_set = req.query.timestamps.map(function(ts) {
         return _pollTravelTime(req.query.start, req.query.end, ts, req.query.line, Array(), sequelize, Logbooks);
     });
 
-    return Promise.all(result_set).then(result_set => { return result_set });
+    // Remove stops before the first stop from the result. Stops that occurred after the last stop were already removed
+    // in the `_fastestSubsequence` subroutine of the `_pollTravelTime` call. Stops that occurred before cannot be
+    // removed until just before returning (here) however, due to the recursive nature of the algorithm.
+    return Promise.all(result_set).then(result_set => result_set);
 }
 
 function _pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
@@ -63,19 +66,18 @@ function _pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
     //
     // An additional bit of sophistication is required for cases where the stop of interest is also the last one in the
     // message.
-    console.log("Searching: ", start, ts, line, ignore);
     let subseq = _fastestSubsequence(start, ts, line, ignore, sequelize, Logbooks);
 
     return subseq.then(function(subseq) {
         if (subseq.length === 0) {
 
-            console.log("Hit the none-found code path");
+            // console.log("Hit the none-found code path");
             // If no trips were found, return an empty result container.
             return {status: "NO_TRIPS_FOUND", results: {}};
 
         } else if ((+subseq[0].dataValues.maximum_time - ts) >= 3600) {
 
-            console.log("Hit the not-found-soon-enough code path");
+            // console.log("Hit the not-found-soon-enough code path");
             // If the trip found begins an hour or longer after the current timestamp, there is a high probability
             // that variant service is in effect. Our model can't return reasonable results in this case, so instead we
             // return a flag. Note that we must use maximum time here because minimum time may be null.
@@ -84,29 +86,34 @@ function _pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
         } else if (subseq.map(s => s.dataValues.stop_id).some(s => (s === end))) {
 
             // If the closest sub-sequence we discovered includes the desired end stop, we are done.
+            let idx_start = subseq.findIndex(s => s.dataValues.stop_id === start);
             let idx_end = subseq.findIndex(s => s.dataValues.stop_id === end);
-            console.log(idx_end);
-            return {status: "OK", results: subseq.filter((s, idx) => (idx <= idx_end))};
+            subseq = subseq.filter((s, idx) => (idx <= idx_end) & (idx_start <= idx));
+
+            return {status: "OK", results: subseq};
 
         } else {
 
             // Otherwise, we must try to find a new sub-sequence, starting from where the old one left off.
-            console.log("Hit the pathfinder code path.");
+            // console.log("Hit the pathfinder code path.");
 
             let end_record = subseq[subseq.length - 1];
-            // console.log(end_record);
             let [new_start, new_ts] = [end_record.dataValues.stop_id, end_record.dataValues.maximum_time];
 
             ignore.push(end_record.dataValues.unique_trip_id);
 
-            return _pollTravelTime(new_start, end, ts, line, ignore, sequelize, Logbooks).then(function(next_subseq) {
-                if (next_subseq.status === "NO_TRIPS_FOUND" || next_subseq.status === "POSSIBLE_SERVICE_VARIATION") {
-                    return {status: next_subseq.status, results: []}
-                }
-
-                return {status: next_subseq.status, results: subseq.concat(next_subseq.results)}
-            });
-
+            return _pollTravelTime(new_start, end, new_ts, line, ignore, sequelize, Logbooks).then(
+                function(next_subseq) {
+                    if ((next_subseq.status === "NO_TRIPS_FOUND") ||
+                        (next_subseq.status === "POSSIBLE_SERVICE_VARIATION")) {
+                        return {status: next_subseq.status, results: []}
+                    } else {
+                        let idx_start = subseq.findIndex(s => s.dataValues.stop_id === start);
+                        let idx_end = subseq.findIndex(s => s.dataValues.stop_id === new_start) - 1;
+                        subseq = subseq.filter((s, idx) => (idx <= idx_end) & (idx_start <= idx));
+                        return {status: next_subseq.status, results: subseq.concat(next_subseq.results)};
+                    }
+                });
         }
     });
 }

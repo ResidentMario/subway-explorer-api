@@ -19,6 +19,7 @@ import warnings
 
 
 FEED_IDENTIFIERS = [1, 2, 11, 16, 21, 26, 31, 36]
+# FEED_IDENTIFIERS = [1]
 LOG_CUT_HEURISTIC_EXCEPTIONS = ['GS']
 TERMINUS_TIME = 3
 
@@ -34,7 +35,7 @@ def run(root, start_time, end_time, out):
     """
     conn = sqlite3.connect("{0}/logbooks.sqlite".format(out))
 
-    for feed_id in [1]:  # FEED_IDENTIFIERS:
+    for feed_id in FEED_IDENTIFIERS:
 
         print("Starting work on the feed with the ID '{0}'".format(feed_id))
         # Date format munging.
