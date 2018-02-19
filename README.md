@@ -56,7 +56,8 @@ You will be served the following as `text/json`:
  "authority_end_time":1522555200}
 ```
 
-The second and more interesting route is `poll-travel-times`. This route returns the most efficient trip between two stops possible at given timestamps. For example, if you visit the following URL:
+The second and more interesting route is `poll-travel-times`. This route returns the most efficient trip between two 
+stops (on the same line) possible at given timestamps. For example, if you visit the following URL:
 
 ```
 http://localhost:3000/poll-travel-times/json?line=2&start=247N&end=220N&timestamps=2018-01-18T02:00
