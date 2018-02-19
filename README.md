@@ -100,6 +100,13 @@ To shut the API down, enter `Ctrl+C` into the terminal console you launched in.
 The `Quickstart` example uses a simple example database that was prepared in advance. To use this API properly, you 
 will need to generate a proper database yourself. Building one comes in two parts.
 
+Before you start, make sure you have [Python](https://www.python.org/) installed on your machine. Then use `pip` to install the following required packages:
+
+```sh
+pip install git+git://github.com/ResidentMario/gtfs-tripify.git@master
+pip install click
+```
+
 ### Feeding in realtime data
 
 The MTA publishes GTFS-Realtime data for every line in its system. This data is split up across several different 
