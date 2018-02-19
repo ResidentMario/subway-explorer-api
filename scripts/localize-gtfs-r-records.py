@@ -31,14 +31,12 @@ def run(date, out, dryrun):
     To perform a dry run (test if this script is working) additionally specify the --dryrun flag.
     """
     for feed_number in [1, 2, 11, 16, 21, 26, 31, 36]:
-        # import pdb; pdb.set_trace()
         # https://stackoverflow.com/q/48358992/1993206
         commands = ["aws", "s3", "sync", "s3://mta-gtfs-{0}".format(feed_number), ".", "--exclude", '*',
                     "--include", '*{0}*'.format(date)]
         if dryrun:
             commands.append("--dryrun")
 
-        # import pdb; pdb.set_trace()
         subprocess.run(commands)
 
         try:
