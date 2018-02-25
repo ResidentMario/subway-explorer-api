@@ -164,8 +164,14 @@ Then, to run the container (pointing it to `localhost:49160`):
 
     docker run -p 49160:3000 -d residentmario/subway-explorer-api
 
-You can visit the URI in the browser to verify that the connection is being served. You can also run the tests by 
-jumping inside the container and running `npx mocha`, using the following command:
+You can visit the following (port-forwarded) URI in the browser to verify that the connection is being served:
+
+```
+http://localhost:49160/locate-stations/json?line=1&x=-74.01&y=40.70&heading=N&time=2018-01-18T14:00
+```
+
+
+You can also run the tests by jumping inside the container and running `npx mocha`, using the following command:
 
     docker exec -it 949cc5d81abe /bin/bash
 

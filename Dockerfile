@@ -12,4 +12,4 @@ COPY . .
 # Expose the app port
 EXPOSE 3000
 # Init the service
-CMD [ "npm", "start" ]
+CMD [ "node", "index.js" ]
