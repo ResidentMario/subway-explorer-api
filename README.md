@@ -166,7 +166,7 @@ To build the container image, run the following from the root folder:
 
 Then, to run the container (pointing it to `localhost:49160`):
 
-    docker run -p 49160:3000 -d residentmario/subway-explorer-api
+    docker run -p 49160:3000 --env-file .env -d residentmario/subway-explorer-api
 
 You can visit the following (port-forwarded) URI in the browser to verify that the connection is being served:
 
