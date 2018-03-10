@@ -24,10 +24,14 @@ Clone this repository:
 git clone https://github.com/ResidentMario/subway-explorer-api
 ```
 
-To run the API you need a database of train arrival and departure times in the root folder. You can get an example 
-database (containing data for the first 12 hours of `2018-01-18`) by downloading `logbook.sqlite` from the 
-[`subway-explorer-example-db`](https://github.com/ResidentMario/subway-explorer-example-db) repository. Place this in
-the root of your copy of the repository before continuing.
+Create an `.env` file in the root folder with a pointer to the database file.
+
+```sh
+DATABASE_FILEPATH=/path/to/your/database
+```
+
+You can download an example database (`logbook.sqlite`) from the 
+[`subway-explorer-example-db`](https://github.com/ResidentMario/subway-explorer-example-db) repository.
 
 To install the necessary packages and then spin the service up, run:
 
