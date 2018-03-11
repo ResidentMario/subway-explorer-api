@@ -50,4 +50,9 @@ app.get('/poll-travel-times/json',
         }
 });
 
+app.get('/status', function(req, res) {
+    res.setHeader('Content-Type', 'application/json');
+    res.send(JSON.stringify({status: 'OK'}))
+});
+
 app.listen(3000);
