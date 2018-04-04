@@ -55,25 +55,26 @@ def run(gtfs, authority_start_time, authority_end_time, db):
     conn = sqlite3.connect(db)
     c = conn.cursor()
 
-    # Create a temporary table for assigning values to. This is an unsightly hack.
-    # TODO: Find a better way to do this.
-    df.to_sql("StopsTemp", conn, if_exists='append')
-    dominant_routes = c.execute(
+    # TODO: expose the bound as a script input variable instead of hard-coding it.
+    regular_stops = c.execute(
 """
-    SELECT stop_routes.route_id
-        FROM (StopsTemp
-            LEFT JOIN 
-                (SELECT route_id, COUNT(route_id), stop_id 
-                FROM Logbooks 
-                GROUP BY stop_id) AS stop_routes 
-            ON StopsTemp.stop_id = stop_routes.stop_id);
-"""
-    ).fetchall()
-    dominant_routes = [d[0] for d in dominant_routes]
-    df = df.assign(route_id=dominant_routes)
-    c.execute("DROP TABLE StopsTemp;")
+  SELECT route_id, stop_id 
+    FROM (SELECT route_id, COUNT(route_id) AS n_stops, stop_id 
+          FROM Logbooks 
+          GROUP BY stop_id, route_id) AS stop_routes
+    WHERE stop_routes.n_stops >= 100;
+""").fetchall()
+
+    import pdb; pdb.set_trace()
+
+    df = (
+        pd.DataFrame(regular_stops, columns=['route_id', 'stop_id'])
+        .set_index('stop_id').join(df.set_index('stop_id'), how='left')
+        .reset_index()
+    )
     conn.commit()
 
+    # Ensure column order.
     df[['stop_id', 'stop_name', 'stop_lat', 'stop_lon', 'authority_start_time',
         'authority_end_time', 'route_id']].to_sql("Stops", conn, if_exists='append')
 
