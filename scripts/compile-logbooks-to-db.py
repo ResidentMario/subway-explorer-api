@@ -11,17 +11,33 @@ E.g. how I've been using it:
 import click
 import os
 from datetime import datetime, timedelta
-from google.transit import gtfs_realtime_pb2
 import gtfs_tripify as gt
 from tqdm import tqdm
 import sqlite3
-import warnings
 
 
 FEED_IDENTIFIERS = [1, 2, 11, 16, 21, 26, 31, 36]
-# FEED_IDENTIFIERS = [1]
 LOG_CUT_HEURISTIC_EXCEPTIONS = ['GS']
 TERMINUS_TIME = 3
+
+
+def daily_transform(logbook, start_datetime):
+    """Helper function for cropping the data to fit the complete single-day format."""
+    for trip_id in list(logbook.keys()):
+        if len(logbook[trip_id]) > 0 and logbook[trip_id].iloc[0].route_id not in LOG_CUT_HEURISTIC_EXCEPTIONS:
+            logbook[trip_id] = gt.utils.cut_cancellations(logbook[trip_id])
+
+    logbook = gt.utils.discard_partial_logs(logbook)
+
+    for trip_id in list(logbook.keys()):
+        if len(logbook[trip_id]) <= 1:
+            del logbook[trip_id]
+        else:
+            start_ts = logbook[trip_id].iloc[0]['latest_information_time']
+            if datetime.fromtimestamp(int(start_ts)).day != start_datetime.day:
+                del logbook[trip_id]
+
+    return logbook
 
 
 @click.command()
@@ -35,9 +51,8 @@ def run(root, start_time, end_time, out):
     """
     conn = sqlite3.connect("{0}/logbooks.sqlite".format(out))
 
-    for feed_id in FEED_IDENTIFIERS:
+    for feed_id in tqdm(FEED_IDENTIFIERS):
 
-        print("Starting work on the feed with the ID '{0}'".format(feed_id))
         # Date format munging.
         feed_root = "{0}/mta-gtfs-{1}".format(root, feed_id)
         start_datetime = datetime.strptime(start_time, "%Y-%m-%dT%H:%M")
@@ -88,81 +103,21 @@ def run(root, start_time, end_time, out):
         # in between `start_time` and `stop_time`. We can pick whatever chunk size we want: six hours, half a day,
         # or a full day, whatever, and execute this script on each chunk of time to push those trips to the database.
         # Obviously though, because of the fixed costs, bigger is better.
-        feeds = []
+        stream = []
         possibly_relevant_feeds = sorted(os.listdir(day_of_root))
         for fp in possibly_relevant_feeds:
             dt = datetime.strptime(":".join(fp.split(":")[:2]), "%Y-%m-%d_%H:%M")
             if dt < read_in_terminus:
-                feeds.append('{0}/{1}'.format(day_of_root, fp))
+                stream.append('{0}/{1}'.format(day_of_root, fp))
 
         more_possibly_relevant_feeds = sorted(os.listdir(day_after_root))
         for fp in more_possibly_relevant_feeds:
             dt = datetime.strptime(":".join(fp.split(":")[:2]), "%Y-%m-%d_%H:%M")
             if dt < read_in_terminus:
-                feeds.append('{0}/{1}'.format(day_after_root, fp))
+                stream.append('{0}/{1}'.format(day_after_root, fp))
 
         # Built the logbook.
-        print("Parsing feeds into buffers...")
-        feeds = [parse_feed(feed) for feed in tqdm(feeds)]
-        feeds = [feed for feed in feeds if feed is not None]
-
-        print("Converting feeds into dictionaries...")
-        feeds = [gt.dictify(feed) for feed in tqdm(feeds)]
-
-        print("Building the logbook...")
-        logbook = gt.logify(feeds)
-        del feeds
-
-        # Cut cancelled and incomplete trips from the logbook. Note that we must exclude shuttles.
-        print("Trimming cancelled and incomplete stops...")
-        for trip_id in tqdm(logbook.keys()):
-            if len(logbook[trip_id]) > 0 and logbook[trip_id].iloc[0].route_id not in LOG_CUT_HEURISTIC_EXCEPTIONS:
-                logbook[trip_id] = gt.utils.cut_cancellations(logbook[trip_id])
-
-        logbook = gt.utils.discard_partial_logs(logbook)
-
-        # Cut empty trips, singleton trips, and trips that began on the follow-on day.
-        print("Cutting cancelled and follow-on-day trips...")
-        trim = logbook.copy()
-        for trip_id in tqdm(logbook.keys()):
-            if len(logbook[trip_id]) <= 1:
-                del trim[trip_id]
-            else:
-                start_ts = logbook[trip_id].iloc[0]['latest_information_time']
-                if datetime.fromtimestamp(int(start_ts)).day != start_datetime.day:
-                    del trim[trip_id]
-
-        del logbook
-
-        print("Writing to SQL...")
-        gt.utils.to_sql(trim, conn)
-
-        print("Done!")
-
-
-def parse_feed(filepath):
-    """Helper function for reading a feed in using Protobuf. Handles bad feeds by replacing them with None."""
-    with warnings.catch_warnings():
-        warnings.simplefilter("error")
-
-        with open(filepath, "rb") as f:
-            try:
-                fm = gtfs_realtime_pb2.FeedMessage()
-                fm.ParseFromString(f.read())
-                return fm
-            except (KeyboardInterrupt, SystemExit):
-                raise
-            # Protobuf occasionally raises an unexpected tag RuntimeWarning. This sometimes occurs when a feed that we
-            # read is in an inconsistent state (the other option is a straight-up exception). It's just a warning,
-            # but it corresponds with data loss, and `gtfs-tripify` should not be allowed to touch the resulting
-            # message --- it will take the non-presence of certain trips no longer present in the database at the
-            # given time as evidence of trip ends. We need to explicitly return None for the corresponding messages
-            # so they can be totally excised.
-            # See https://groups.google.com/forum/#!msg/mtadeveloperresources/9Fb4SLkxBmE/BlmaHWbfw6kJ
-            except RuntimeWarning:
-                return None
-            except:
-                return None
+        gt.io.stream_to_sql(stream, conn, transform=lambda logbook: daily_transform(logbook, start_datetime))
 
 
 if __name__ == '__main__':
