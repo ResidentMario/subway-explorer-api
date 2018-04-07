@@ -102,9 +102,7 @@ To shut the API down, enter `Ctrl+C` into the terminal console you launched in.
 
 ## Building a database
 
-The `Quickstart` example uses a simple example database that was prepared in advance. To use this API properly, you 
-will need to generate a proper database yourself. Building one comes in two parts.
-
+The `Quickstart` example uses a simple example database that was prepared in advance. To use this API properly, you will need to generate a proper database yourself. 
 Before you start, make sure you have [Python](https://www.python.org/) installed on your machine. Then use `pip` to install the following required packages:
 
 ```sh
@@ -112,11 +110,13 @@ pip install git+git://github.com/ResidentMario/gtfs-tripify.git@master
 pip install click
 ```
 
-### Feeding in realtime data
+### Localizing data
 
-The MTA publishes GTFS-Realtime data for every line in its system. This data is split up across several different feeds, each one of which updated every 30 seconds. This data is the raw input for this project, and if you want to do something similar you need to archive it somehow. Unfortunately no public archives up-to-date archives exist; if you want to use this API for current data, you will need to archive the data yourself.
+The MTA publishes GTFS-Realtime data for every line in its system. This data is split up across several different feeds, each one of which updated every 30 seconds. This data is the raw input for this project, and if you want to do something similar you need to archive it somehow.
 
-I've done this using an AWS Lambda function feeding into a packet of AWS S3 buckets, triggered by a AWS CloudWatch cron job. A copy of the script doing this work is available as `aws-lambda-archiver.py` in the `scripts` folder. You can use this script to archive feeds up on AWS yourself.
+Unfortunately no public archives up-to-date archives exist; if you want to use this API for current data, you will need to archive the data yourself.
+
+I've done this using an AWS Lambda function feeding into a packet of AWS S3 buckets, triggered by a AWS CloudWatch cron job running once a minute. A copy of the script doing this work is available as `aws-lambda-archiver.py` in the `scripts` folder. You can use this script to archive feeds up on AWS yourself.
 
 The `localize-gtfs-r-records.py` script can download batches of relevant GTFS-Realtime fields:
 
@@ -126,26 +126,27 @@ You must have the [AWS CLI](https://aws.amazon.com/cli/) installed (and [configu
   
 Note that the scripts and instructions in this section up to here are AWS specific. Any other cloud provider you prefer will do the job, but you will need to write your own pipeline, using this existing one as a template.
 
-Then, the `compile-gtfs-feed-to-db.py` script writes that data to a historified database:
+### Feeding in the realtime data
+
+Then, the `compile-gtfs-feed-to-db.py` script writes that data to a database:
 
     python compile-logbooks-to-db.py ~/Desktop/subway-explorer-datastore/ '2018-01-18T00:00' '2018-01-18T12:00' .
 
-Running this script will add complete stop sequences which started within the inputed time period to the database.
+Running this script (actually a thin wrapper on the `gt.io.stream_to_sql` module method) will add complete stop sequences which started within the inputted time period to the database.
 
-It's important to keep in mind that you must have three hours of "bonus" data beyond the specified stop time in order
-to run these scripts successfully. That data is used to write trips that start in the given time frame, but end past it.
+The table entries created are contiguous, meaning that we can follow this run (on the first half of January 18, 2018) with a second run (on the second half of January 18, 2018) and get the same result we would have gotten if we had parameterized the script with the whole day (all of January 18, 2018) to begin win with.
 
-The build process, uses the [`gtfs-tripify`](https://github.com/ResidentMario/gtfs-tripify) library and is robust 
-against data errors.
+To achieve this, the script "looks ahead" and parses data up to three hours after the given end date. So for the endpoint timestamp `2018-01-18T12:00`, the script will actually parse trips all the way up to `2018-01-18T15:00`. This is done to ensure that trips that started before the `2018-01-18T12:00` cutoff but ended some time after that are populated with their complete stop sequence (e.g. no projected `EXPECTED_TO_ARRIVE_AT` records).
 
-Make sure that the resulting database is named  `logbooks.sqlite` and located in the root directory of this repository.
+In the future I may implement streaming support for `gtfs-tripify`, which would de-necessitate this ugly workaround (and unlock some other interesting use cases for this data stream besides). For now, keep in mind when running this script that you must have three extra hours of data available in order for the run to be successful.
+
+Because of this high fixed cost, it is optimal to run this script on time chunks as large as your RAM limitations allow. 12-hour chunks are approximately optimal for a 16 GB machine. This may change in the future, but for now running this script is very expensive!
 
 ### Feeding in station identities
 
-The database will also need relevant `GTFS` station records. These are used to populate a station lookup code path. 
-The challenge is that the names and IDs of stations may change over time. So `stops.txt` from a `GTFS` roll-up must be 
-written to the database with an `authority_start_time` and `authority_end_time`, to make sure that the given station 
-is correct for the given time period. You can write this data using the `compile-gtfs-feed-to-db.py` script:
+The database will also need relevant `GTFS` station records.
+
+These are used to populate the station lookup code path in the API. The challenge is that the names and IDs of stations may change over time. So `stops.txt` from a `GTFS` roll-up must be written to the database with an `authority_start_time` and `authority_end_time`, to make sure that the given station is correct for the given time period. You can write this data using the `compile-gtfs-feed-to-db.py` script:
 
     python compile-gtfs-feed-to-db.py ~/Downloads/google_transit.zip "2018-01-01T00:00" "2018-04-01T00:00" logbooks.sqlite
 
