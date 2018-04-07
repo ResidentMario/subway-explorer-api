@@ -100,7 +100,7 @@ programmatically. For experimenting with the API it's easier to search the `stop
 
 To shut the API down, enter `Ctrl+C` into the terminal console you launched in.
 
-## Building a database
+## Build
 
 The `Quickstart` example uses a simple example database that was prepared in advance. To use this API properly, you will need to generate a proper database yourself. 
 Before you start, make sure you have [Python](https://www.python.org/) installed on your machine. Then use `pip` to install the following required packages:
