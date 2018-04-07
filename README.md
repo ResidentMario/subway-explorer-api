@@ -114,10 +114,9 @@ pip install click
 
 ### Feeding in realtime data
 
-The MTA publishes GTFS-Realtime data for every line in its system. This data is split up across several different 
-feeds, each one of which updated every 30 seconds. This data is the raw input for this project, and if you want to 
-do something similar you need to archive it somehow. I've done so using an AWS Lambda function feeding into a packet of 
-AWS S3 buckets. The script that *I* use for archiving is available as `aws-lambda-archiver.py` in the `scripts` folder.
+The MTA publishes GTFS-Realtime data for every line in its system. This data is split up across several different feeds, each one of which updated every 30 seconds. This data is the raw input for this project, and if you want to do something similar you need to archive it somehow. Unfortunately no public archives up-to-date archives exist; if you want to use this API for current data, you will need to archive the data yourself.
+
+I've done this using an AWS Lambda function feeding into a packet of AWS S3 buckets, triggered by a AWS CloudWatch cron job. A copy of the script doing this work is available as `aws-lambda-archiver.py` in the `scripts` folder. You can use this script to archive feeds up on AWS yourself.
 
 The `localize-gtfs-r-records.py` script can download batches of relevant GTFS-Realtime fields:
 
@@ -125,6 +124,8 @@ The `localize-gtfs-r-records.py` script can download batches of relevant GTFS-Re
     
 You must have the [AWS CLI](https://aws.amazon.com/cli/) installed (and [configured with your credentials](https://docs.aws.amazon.com/cli/latest/userguide/cli-chap-getting-started.html)) to run this script.
   
+Note that the scripts and instructions in this section up to here are AWS specific. Any other cloud provider you prefer will do the job, but you will need to write your own pipeline, using this existing one as a template.
+
 Then, the `compile-gtfs-feed-to-db.py` script writes that data to a historified database:
 
     python compile-logbooks-to-db.py ~/Desktop/subway-explorer-datastore/ '2018-01-18T00:00' '2018-01-18T12:00' .
