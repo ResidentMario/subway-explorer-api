@@ -3,9 +3,10 @@ const app = express();
 const moment = require('moment');
 const api = require('./api.js');
 const db = require('./db.js');
-require('dotenv').config();
-const DATABASE_FILEPATH = process.env.DATABASE_FILEPATH;
 
+require('dotenv').config();
+
+const DATABASE_FILEPATH = process.env.DATABASE_FILEPATH;
 const sequelize = db.sequelize(DATABASE_FILEPATH);
 const [Stops, Logbooks] = [db.Stops(sequelize), db.Logbooks(sequelize)];
 

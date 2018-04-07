@@ -1,7 +1,7 @@
 const Sequelize = require('sequelize');
 const Op = Sequelize.Op;
 const moment = require('moment');
-
+const logger = require('./logging.js').logger;
 
 function locateStation(req, sequelize, Stops) {
     // Find the stop_id for a given (latitude, longitude) pair, route_id, and heading (N or S).
@@ -72,16 +72,20 @@ function _pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
     return subseq.then(function(subseq) {
         if (subseq.length === 0) {
 
-            // console.log("Hit the none-found code path");
             // If no trips were found, return an empty result container.
+            logger.info(`No matching trips were found. Aborting with NO_TRIPS_FOUND.`);
             return {status: "NO_TRIPS_FOUND", results: {}};
 
         } else if ((+subseq[0].dataValues.maximum_time - ts) >= 3600) {
 
-            // console.log("Hit the not-found-soon-enough code path");
             // If the trip found begins an hour or longer after the current timestamp, there is a high probability
             // that variant service is in effect. Our model can't return reasonable results in this case, so instead we
             // return a flag. Note that we must use maximum time here because minimum time may be null.
+            logger.info(
+                `This trip left station ${start} at ${+subseq[0].dataValues.maximum_time} ` +
+                `(${moment.unix(subseq[0].dataValues.maximum_time).utcOffset(-5).format()}), ` +
+                `${(+subseq[0].dataValues.maximum_time - ts)} seconds after we arrived. ` +
+                `This wait time was too long, aborting with POSSIBLE_SERVICE_VARIATION.`);
             return {status: "POSSIBLE_SERVICE_VARIATION", results: {}};
 
         } else if (subseq.map(s => s.dataValues.stop_id).some(s => (s === end))) {
@@ -91,15 +95,24 @@ function _pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
             let idx_end = subseq.findIndex(s => s.dataValues.stop_id === end);
             subseq = subseq.filter((s, idx) => (idx <= idx_end) & (idx_start <= idx));
 
+            logger.info(
+                `This trip reached the requested endpoint station ${end} by time ${subseq[subseq.length - 1].maximum_time} ` +
+                `(${moment.unix(subseq[subseq.length - 1].maximum_time).utcOffset(-5).format()}). Returning with OK.`
+            );
             return {status: "OK", results: subseq};
 
         } else {
 
             // Otherwise, we must try to find a new sub-sequence, starting from where the old one left off.
-            // console.log("Hit the pathfinder code path.");
-
             let end_record = subseq[subseq.length - 1];
             let [new_start, new_ts] = [end_record.dataValues.stop_id, end_record.dataValues.maximum_time];
+
+            logger.info(
+                `This trip terminated at probable intermediate station ${end_record.dataValues.stop_id} at time ` +
+                `${end_record.dataValues.maximum_time} ` +
+                `(${moment.unix(end_record.dataValues.maximum_time).utcOffset(-5).format()}). ` +
+                `Adding to ignore list and recursively polling again.`
+            );
 
             ignore.push(end_record.dataValues.unique_trip_id);
 
@@ -121,6 +134,10 @@ function _pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
 
 function _fastestSubsequence(start, ts, route, ignore, sequelize, Logbooks) {
     // Subroutine. Returns the trip on the given route which has the earliest start time after the given ts.
+    logger.info(
+        `Requesting the next ${route} trip departing from station ${start} at time ${ts} ` +
+        `(${moment.unix(ts).utcOffset(-5).format()}). Ignoring ${ignore.length} pre-explored trips.`
+    );
     return Logbooks.findOne({
         attributes: ['unique_trip_id'],
         where: {
@@ -133,8 +150,12 @@ function _fastestSubsequence(start, ts, route, ignore, sequelize, Logbooks) {
         limit: 1
     })
     .then(function(result) {
-        if (!result) { return [] }  // The empty list is turned into a NO_TRIPS_FOUND status upstream.
 
+        if (!result) {
+            return [];
+        }  // The empty list is turned into a NO_TRIPS_FOUND status upstream.
+
+        logger.info(`Found matching trip with unique_trip_id ${result.unique_trip_id}.`);
         return Logbooks.findAll({
             where: {
                 unique_trip_id: {[Op.eq]: [result.unique_trip_id]}

@@ -13,6 +13,7 @@ function sequelize(fp, opts) {
         },
         storage: fp,
         operatorsAliases: false,
+        logging: false,
         ...opts
     });
 
