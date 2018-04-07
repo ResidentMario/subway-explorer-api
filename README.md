@@ -94,11 +94,13 @@ To inspect multiple timestamps simultaneously, separate them using a pipe charac
 http://localhost:3000/poll-travel-times/json?line=2&start=247N&end=220N&timestamps=2018-01-18T02:00|2018-01-18T14:00
 ```
 
-Note that this API expects input using station IDs assigned by the MTA, *not* human-readable station names. The 
-`locate-stations` route is actually intended for transforming `(latitude, longitude)` pairs into station IDs 
-programmatically. For experimenting with the API it's easier to search the `stops.txt` record in the [official MTA GTFS record](http://web.mta.info/developers/data/nyct/subway/google_transit.zip).
+You will notice that the stops inputted (and returned) by the API are MTA-defined stop IDs, *not* human-readable station names. You might use the `locate-station` API route to resolve these, or resolve the names manually or in your own code using the `stops.txt` record in the [official MTA GTFS record](http://web.mta.info/developers/data/nyct/subway/google_transit.zip).
 
-To shut the API down, enter `Ctrl+C` into the terminal console you launched in.
+The first stop in the sequence may have a `minimum_time` of `null`. More rarely, intermediate stops in the sequence may also have this property.
+
+If the last stop in the sequence corresponds with the last stop on the route, it may have a `maximum_time` far away from the `minimum_time` (the train might be "parked" at the station). In this case you will find the `minimum_time` to be more informative.
+
+To shut the API down, enter `Ctrl+C` into the terminal console you launched it in.
 
 ## Build
 
@@ -183,6 +185,4 @@ You can also run the tests by jumping inside the container and running `npx moch
 
 Replacing the name with the name of the running image (discoverable via `docker ps`).
 
-This Docker container does not come with a database attached, so the API can't do anything useful right off the bat. 
-To make it do something useful you can mount the database you created as a volume using Docker controls, or rely on 
-linkage tooling in a cluster manager like Kubernetes (which is what I plan to did).
+This Docker container does not come with a database attached, so the API can't do anything useful right off the bat. To make it do something useful you can mount the database you created as a volume using Docker controls, or rely on similar tools in a container management platform like Kubernetes.
