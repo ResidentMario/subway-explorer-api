@@ -5,6 +5,7 @@ const logger = require('./logging.js').logger;
 
 function locateStation(req, sequelize, Stops) {
     // Find the stop_id for a given (latitude, longitude) pair, route_id, and heading (N or S).
+    // TODO: Add logging.
 
     const unix_ts = moment(req.query.time).unix();
 
@@ -43,10 +44,6 @@ function locateStation(req, sequelize, Stops) {
 function pollTravelTimes(req, sequelize, Logbooks) {
     req.query.timestamps = req.query.timestamps.split("|").map(ts => moment(ts).unix());
 
-    // SELECT * FROM Logbooks WHERE unique_trip_id IN (SELECT unique_trip_id FROM Logbooks WHERE route_id = "6"
-    // AND "stop_id" == "604S" AND minimum_time > 1516253092 ORDER BY minimum_time LIMIT 1);
-    // http://localhost:3000/poll-travel-times/json?line=2&start=231N&end=229N&timestamps=2018-01-18T09:00
-    // http://localhost:3000/poll-travel-times/json?line=1&start=106S&end=142S&timestamps=2018-01-18T09:00
     let result_set = req.query.timestamps.map(function(ts) {
         return _pollTravelTime(req.query.start, req.query.end, ts, req.query.line, Array(), sequelize, Logbooks);
     });
@@ -138,15 +135,22 @@ function _fastestSubsequence(start, ts, route, ignore, sequelize, Logbooks) {
         `Requesting the next ${route} trip departing from station ${start} at time ${ts} ` +
         `(${moment.unix(ts).utcOffset(-5).format()}). Ignoring ${ignore.length} pre-explored trips.`
     );
+
+    // We technically need the first train whose minimum arrival time is greater than the timestamp provided.
+    // However the minimum arrival time is always null for the first station in a trip, as in this case it is
+    // indeterminate. Due to this fact `minimum_time > ts` is not an option. Instead, we compare the `maximum_time`
+    // (which is never null) against the input timestamp plus the window size (60 seconds for the MTA). The
+    // reasoning being that if the train left the stop by time N and was not in the system at time N-1, it was
+    // either accessible or soon-to-be-accessible to passengers arriving at time N-1.
     return Logbooks.findOne({
         attributes: ['unique_trip_id'],
         where: {
-            maximum_time: {[Op.gt]: [ts]},
+            maximum_time: {[Op.gt]: [ts + 60]},
             stop_id: {[Op.eq]: [start]},
             route_id: {[Op.eq]: [route]},
             unique_trip_id: {[Op.notIn]: [ignore]}
         },
-        order: [[sequelize.col('minimum_time'), 'ASC']],
+        order: [[sequelize.col('maximum_time'), 'ASC']],
         limit: 1
     })
     .then(function(result) {
@@ -160,7 +164,7 @@ function _fastestSubsequence(start, ts, route, ignore, sequelize, Logbooks) {
             where: {
                 unique_trip_id: {[Op.eq]: [result.unique_trip_id]}
             },
-            order: [[sequelize.col('minimum_time'), 'ASC']]
+            order: [[sequelize.col('maximum_time'), 'ASC']]
         })
     })
 }
