@@ -56,6 +56,9 @@ def run(gtfs, authority_start_time, authority_end_time, db):
     c = conn.cursor()
 
     # TODO: expose the bound as a script input variable instead of hard-coding it.
+    # This boundary safely corresponds with ~a full day of data. Do not try to run this script without enough data!!!
+    # In practice, this is where domain expertise on the orientation of the subway system should come in. For now, this
+    # heuristic is enough.
     regular_stops = c.execute(
 """
   SELECT route_id, stop_id 
@@ -64,8 +67,6 @@ def run(gtfs, authority_start_time, authority_end_time, db):
           GROUP BY stop_id, route_id) AS stop_routes
     WHERE stop_routes.n_stops >= 100;
 """).fetchall()
-
-    import pdb; pdb.set_trace()
 
     df = (
         pd.DataFrame(regular_stops, columns=['route_id', 'stop_id'])

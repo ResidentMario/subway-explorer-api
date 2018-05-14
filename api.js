@@ -100,14 +100,16 @@ function _pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
 
         } else {
 
-            // Otherwise, we must try to find a new sub-sequence, starting from where the old one left off.
+            // Otherwise, we must try to find a new sub-sequence, starting from where the old one left off. In this
+            // case the information time is a safe join time (`minimum_time` may be undefined, and `maximum_time` may
+            // be far away from `minimum_time` in the case of e.g. delays).
             let end_record = subseq[subseq.length - 1];
-            let [new_start, new_ts] = [end_record.dataValues.stop_id, end_record.dataValues.maximum_time];
+            let [new_start, new_ts] = [end_record.dataValues.stop_id, +end_record.dataValues.latest_information_time];
 
             logger.info(
-                `This trip terminated at probable intermediate station ${end_record.dataValues.stop_id} at time ` +
-                `${end_record.dataValues.maximum_time} ` +
-                `(${moment.unix(end_record.dataValues.maximum_time).utcOffset(-5).format()}). ` +
+                `This trip terminated at probable intermediate station ${end_record.dataValues.stop_id} by time ` +
+                `${end_record.dataValues.latest_information_time} ` +
+                `(${moment.unix(+end_record.dataValues.latest_information_time).utcOffset(-5).format()}). ` +
                 `Adding to ignore list and recursively polling again.`
             );
 

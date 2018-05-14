@@ -16,7 +16,8 @@ from tqdm import tqdm
 import sqlite3
 
 
-FEED_IDENTIFIERS = [1, 2, 11, 16, 21, 26, 31, 36]
+FEED_IDENTIFIERS = [16]
+# FEED_IDENTIFIERS = [1, 2, 11, 16, 21, 26, 31, 36]
 LOG_CUT_HEURISTIC_EXCEPTIONS = ['GS']
 TERMINUS_TIME = 3
 
