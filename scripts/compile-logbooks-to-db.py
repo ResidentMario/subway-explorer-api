@@ -108,13 +108,13 @@ def run(root, start_time, end_time, out):
         possibly_relevant_feeds = sorted(os.listdir(day_of_root))
         for fp in possibly_relevant_feeds:
             dt = datetime.strptime(":".join(fp.split(":")[:2]), "%Y-%m-%d_%H:%M")
-            if dt < read_in_terminus:
+            if (dt < read_in_terminus) and (dt > start_datetime):
                 stream.append('{0}/{1}'.format(day_of_root, fp))
 
         more_possibly_relevant_feeds = sorted(os.listdir(day_after_root))
         for fp in more_possibly_relevant_feeds:
             dt = datetime.strptime(":".join(fp.split(":")[:2]), "%Y-%m-%d_%H:%M")
-            if dt < read_in_terminus:
+            if (dt < read_in_terminus) and (dt > start_datetime):
                 stream.append('{0}/{1}'.format(day_after_root, fp))
 
         # Built the logbook.
