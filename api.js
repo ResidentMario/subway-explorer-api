@@ -86,15 +86,16 @@ function _pollTravelTime(start, end, ts, line, ignore, sequelize, Logbooks) {
             return {status: "POSSIBLE_SERVICE_VARIATION", results: {}};
 
         } else if (subseq.map(s => s.dataValues.stop_id).some(s => (s === end))) {
-
             // If the closest sub-sequence we discovered includes the desired end stop, we are done.
             let idx_start = subseq.findIndex(s => s.dataValues.stop_id === start);
             let idx_end = subseq.findIndex(s => s.dataValues.stop_id === end);
             subseq = subseq.filter((s, idx) => (idx <= idx_end) & (idx_start <= idx));
 
             logger.info(
-                `This trip reached the requested endpoint station ${end} by time ${subseq[subseq.length - 1].maximum_time} ` +
-                `(${moment.unix(subseq[subseq.length - 1].maximum_time).utcOffset(-5).format()}). Returning with OK.`
+                `This trip reached the requested endpoint station ${end} by time ` +
+                `${subseq[subseq.length - 1].latest_information_time} ` +
+                `(${moment.unix(subseq[subseq.length - 1].latest_information_time).utcOffset(-5).format()}).` +
+                `Returning with OK.`
             );
             return {status: "OK", results: subseq};
 
@@ -166,7 +167,10 @@ function _fastestSubsequence(start, ts, route, ignore, sequelize, Logbooks) {
             where: {
                 unique_trip_id: {[Op.eq]: [result.unique_trip_id]}
             },
-            order: [[sequelize.col('maximum_time'), 'ASC']]
+            // The maximum_time of the last record in the stop sequence may be null, in rare cases (unclear why). Since
+            // null is sorted to the first position, this will break the station sort order and cause problems
+            // downstream, so we sort by `latest_information_time` first, `maximum_time` second.
+            order: [[sequelize.col('latest_information_time'), 'ASC'], [sequelize.col('maximum_time'), 'ASC']]
         })
     })
 }
