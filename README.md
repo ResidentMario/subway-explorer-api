@@ -14,9 +14,9 @@ the [`gtfs-tripify`](https://github.com/ResidentMario/gtfs-tripify) library and 
 
 The [`subway-explorer-webapp`](https://github.com/ResidentMario/subway-explorer-webapp) repository defines a model web application using this API.
 
-## Quickstart
+## Installation
 
-You will need to have [Node.JS](https://nodejs.org/en/) installed and configured.
+You will need to have [Node.JS](https://nodejs.org/en/) and [Python](https://www.python.org/) installed and configured.
 
 Clone this repository:
 
@@ -24,14 +24,19 @@ Clone this repository:
 git clone https://github.com/ResidentMario/subway-explorer-api
 ```
 
-Create an `.env` file in the root folder with a pointer to the database file.
+Currently this API is in proof-of-concept, and is hard-coded to serve a specific range of data (a selection of a dates from a handful of days in February 2018). The database serving said data is stored in [Quilt](https://github.com/quiltdata/quilt), and you can get it locally by doing the following:
 
-```sh
-DATABASE_FILEPATH=/path/to/your/database
+```
+pip install quilt
+quilt install ResidentMario/subway_explorer_data_package
+quilt export ResidentMario/subway_explorer_data_package
 ```
 
-You can download an example database (`logbook.sqlite`) from the 
-[`subway-explorer-example-db`](https://github.com/ResidentMario/subway-explorer-example-db) repository.
+This will create a `logbooks.sqlite` database wherever you ran the command. Now create an `.env` file in the root folder whose contents is a pointer to this file:
+
+```sh
+DATABASE_FILEPATH=/path/to/your/database/logbooks.sqlite
+```
 
 To install the necessary packages and then spin the service up, run:
 
@@ -41,6 +46,8 @@ node index.js
 ```
 
 The API will now listen for input on `http://localhost:3000/`.
+
+## Endpoints
 
 There are two routes in the API. The first is `locate-stations`, which simply returns the station nearest a given 
 latitude and longitude. If you visit the following URL in your local browser:
@@ -102,9 +109,10 @@ If the last stop in the sequence corresponds with the last stop on the route, it
 
 To shut the API down, enter `Ctrl+C` into the terminal console you launched it in.
 
-## Build
+## Rolling your own
 
-The `Quickstart` example uses a simple example database that was prepared in advance. To use this API properly, you will need to generate a proper database yourself. 
+The `Installation` example uses a simple example database that was prepared in advance. To use this API properly, you will need to generate a proper database yourself (undocumented: and also change the hard-coded time lookups in the code).
+
 Before you start, make sure you have [Python](https://www.python.org/) installed on your machine. Then use `pip` to install the following required packages:
 
 ```sh
